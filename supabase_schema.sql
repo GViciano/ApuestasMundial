@@ -1,8 +1,9 @@
--- Ejecuta este SQL en Supabase > SQL Editor
+-- Ejecuta en Supabase > SQL Editor
 
 create table profiles (
   id uuid primary key default gen_random_uuid(),
   username text unique not null,
+  display_name text,
   password_hash text not null,
   is_admin boolean default false,
   created_at timestamptz default now()
@@ -35,12 +36,8 @@ create table config (
   value jsonb not null
 );
 
--- Puntos por defecto: exacto=3, signo=1, goleador=2, minuto=1
-insert into config (key, value) values ('points', '{"exact": 3, "sign": 1, "scorer": 2, "minute": 1}');
-
--- Admin por defecto (password: admin123 en base64)
-insert into profiles (username, password_hash, is_admin)
-values ('admin', 'YWRtaW4xMjM=', true);
+insert into config (key, value) values ('points', '{"exact":3,"sign":1,"scorer":2,"minute":1}');
+insert into profiles (username, display_name, password_hash, is_admin) values ('admin', 'Admin', 'YWRtaW4xMjM=', true);
 
 alter table profiles disable row level security;
 alter table bets disable row level security;

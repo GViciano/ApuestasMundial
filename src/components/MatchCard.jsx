@@ -1,12 +1,47 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 import { FLAGS, SQUADS, fmtDate, isOpen, timeLeft, calcPoints, calcPointsBreakdown } from '../data.js'
-import styles from './MatchCard.module.css'
+
+const s = {
+  card:(hasResult)=>({background:'var(--bg2)',border:`1px solid ${hasResult?'var(--border2)':'var(--border)'}`,borderRadius:12,padding:16,marginBottom:10}),
+  header:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12,gap:8},
+  date:{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:.8},
+  badgeTime:{fontSize:12,padding:'3px 8px',borderRadius:20,color:'var(--accent)',background:'rgba(245,166,35,.1)'},
+  badgePts:{fontSize:12,padding:'3px 8px',borderRadius:20,color:'var(--green)',background:'rgba(34,197,94,.15)',fontWeight:500},
+  badgeZero:{fontSize:12,padding:'3px 8px',borderRadius:20,color:'var(--text3)',background:'rgba(255,255,255,.05)'},
+  closed:{fontSize:11,color:'var(--text3)'},
+  ptsDetail:{display:'flex',gap:5,fontSize:11,marginTop:3,justifyContent:'flex-end',flexWrap:'wrap'},
+  ptsChip:{background:'rgba(34,197,94,.1)',color:'var(--green)',padding:'1px 5px',borderRadius:10},
+  teams:{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:8,alignItems:'center',marginBottom:14},
+  team:{textAlign:'center'},
+  flag:{fontSize:28},
+  name:{fontSize:12,fontWeight:500,marginTop:4,lineHeight:1.3},
+  scoreReal:{fontFamily:'var(--font-d)',fontSize:32,color:'var(--accent)',letterSpacing:3},
+  vsText:{fontFamily:'var(--font-d)',fontSize:22,color:'var(--text3)'},
+  section:{borderTop:'1px solid var(--border)',paddingTop:12},
+  sectionLabel:(admin)=>({fontSize:11,color:admin?'var(--accent)':'var(--text3)',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}),
+  scoreInputs:{display:'grid',gridTemplateColumns:'1fr 20px 1fr',gap:8,alignItems:'center',marginBottom:12},
+  scoreDash:{textAlign:'center',fontFamily:'var(--font-d)',fontSize:20,color:'var(--text3)'},
+  scoreInput:(open)=>({textAlign:'center',background:'var(--bg4)',border:`1px solid ${open?'var(--border2)':'var(--border)'}`,borderRadius:8,padding:'8px 4px',color:'var(--text)',fontSize:22,fontFamily:'var(--font-d)',width:'100%',opacity:open?1:.4}),
+  extras:{display:'flex',flexDirection:'column',gap:10,marginBottom:10},
+  extraLabel:{fontSize:11,color:'var(--text3)',marginBottom:4},
+  sel:(open)=>({background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:7,padding:'8px 10px',color:'var(--text)',fontSize:13,width:'100%',fontFamily:'var(--font-b)',opacity:open?1:.4}),
+  minInput:(open)=>({background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:7,padding:'8px 10px',color:'var(--text)',fontSize:13,width:'100%',fontFamily:'var(--font-b)',opacity:open?1:.4}),
+  btnPrimary:{width:'100%',padding:9,borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',border:'none',background:'var(--accent)',color:'#0a0f1e'},
+  btnSaved:{width:'100%',padding:9,borderRadius:8,fontSize:13,fontWeight:500,cursor:'default',border:'1px solid var(--border)',background:'transparent',color:'var(--text3)'},
+  btnSecondary:{width:'100%',padding:9,borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',border:'1px solid var(--border2)',background:'var(--bg4)',color:'var(--text)'},
+  savedBet:{fontSize:12,color:'var(--text3)',textAlign:'center',padding:'6px 0',lineHeight:1.5},
+  noBet:{fontSize:12,color:'var(--text3)',textAlign:'center',padding:'4px 0',fontStyle:'italic'},
+}
 
 export default function MatchCard({ match, user, myBet, result, points, onBetSaved, onResultSaved }) {
   const open = isOpen(match.date)
   const tl = timeLeft(match.date)
   const hasResult = result && result.home_goals !== undefined
+  const earned = calcPoints(myBet, result, points)
+  const breakdown = calcPointsBreakdown(myBet, result, points)
+  const homeSquad = SQUADS[match.home] || []
+  const awaySquad = SQUADS[match.away] || []
 
   const [homeG, setHomeG] = useState(myBet?.home_goals ?? '')
   const [awayG, setAwayG] = useState(myBet?.away_goals ?? '')
@@ -20,185 +55,122 @@ export default function MatchCard({ match, user, myBet, result, points, onBetSav
   const [rScorer, setRScorer] = useState(result?.scorer || '')
   const [rMinute, setRMinute] = useState(result?.minute || '')
 
-  const earned = calcPoints(myBet, result, points)
-  const breakdown = calcPointsBreakdown(myBet, result, points)
-
-  const homeSquad = SQUADS[match.home] || []
-  const awaySquad = SQUADS[match.away] || []
-
   const saveBet = async () => {
     if (homeG === '' || awayG === '') return
     setSaving(true)
-    const payload = {
-      user_id: user.id, match_id: match.id,
-      home_goals: +homeG, away_goals: +awayG,
-      scorer: scorer || null,
-      minute: minute ? +minute : null,
-    }
-    if (myBet?.id) {
-      await supabase.from('bets').update(payload).eq('id', myBet.id)
-    } else {
-      await supabase.from('bets').insert(payload)
-    }
+    const payload = { user_id:user.id, match_id:match.id, home_goals:+homeG, away_goals:+awayG, scorer:scorer||null, minute:minute?+minute:null }
+    if (myBet?.id) await supabase.from('bets').update(payload).eq('id', myBet.id)
+    else await supabase.from('bets').insert(payload)
     setSaving(false); setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
+    setTimeout(()=>setSaved(false), 1500)
     onBetSaved?.()
   }
 
   const saveResult = async () => {
     if (rHomeG === '' || rAwayG === '') return
-    const payload = {
-      match_id: match.id,
-      home_goals: +rHomeG, away_goals: +rAwayG,
-      scorer: rScorer || null,
-      minute: rMinute ? +rMinute : null,
-    }
-    if (result?.id) {
-      await supabase.from('results').update(payload).eq('id', result.id)
-    } else {
-      await supabase.from('results').insert(payload)
-    }
+    const payload = { match_id:match.id, home_goals:+rHomeG, away_goals:+rAwayG, scorer:rScorer||null, minute:rMinute?+rMinute:null }
+    if (result?.id) await supabase.from('results').update(payload).eq('id', result.id)
+    else await supabase.from('results').insert(payload)
     onResultSaved?.()
   }
 
+  const ScoreInput = ({val, onChange, disabled}) => (
+    <input type="number" min="0" max="20" value={val} onChange={e=>onChange(e.target.value)}
+      disabled={disabled} placeholder="0" style={s.scoreInput(!disabled)}/>
+  )
+  const PlayerSelect = ({val, onChange, disabled}) => (
+    <select value={val} onChange={e=>onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
+      <option value="">— Ninguno / sin goles —</option>
+      <optgroup label={`${FLAGS[match.home]||''} ${match.home}`}>
+        {homeSquad.map(p=><option key={p} value={p}>{p}</option>)}
+      </optgroup>
+      <optgroup label={`${FLAGS[match.away]||''} ${match.away}`}>
+        {awaySquad.map(p=><option key={p} value={p}>{p}</option>)}
+      </optgroup>
+    </select>
+  )
+
   return (
-    <div className={`${styles.card} ${hasResult ? styles.hasResult : ''}`}>
-      {/* Header */}
-      <div className={styles.header}>
-        <span className={styles.date}>{fmtDate(match.date)}</span>
-        {earned !== null && (
-          <div className={styles.ptsWrap}>
-            <span className={`${styles.badge} ${earned > 0 ? styles.badgePts : styles.badgeZero}`}>
-              {earned > 0 ? `+${earned} pts` : '0 pts'}
-            </span>
-            {earned > 0 && breakdown && (
-              <div className={styles.ptsDetail}>
-                {breakdown.exact > 0 && <span>🎯+{breakdown.exact}</span>}
-                {breakdown.sign > 0 && <span>✅+{breakdown.sign}</span>}
-                {breakdown.scorer > 0 && <span>⚽+{breakdown.scorer}</span>}
-                {breakdown.minute > 0 && <span>🕐+{breakdown.minute}</span>}
-              </div>
-            )}
-          </div>
-        )}
-        {earned === null && tl && (
-          <span className={`${styles.badge} ${styles.badgeTime}`}>⏱ {tl}</span>
-        )}
-        {earned === null && !tl && !hasResult && (
-          <span className={styles.closed}>Cerrada</span>
-        )}
-      </div>
-
-      {/* Teams */}
-      <div className={styles.teams}>
-        <div className={styles.team}>
-          <div className={styles.flag}>{FLAGS[match.home]}</div>
-          <div className={styles.name}>{match.home}</div>
-        </div>
-        <div className={styles.vs}>
-          {hasResult
-            ? <span className={styles.scoreReal}>{result.home_goals} - {result.away_goals}</span>
-            : <span className={styles.vsText}>VS</span>
-          }
-        </div>
-        <div className={styles.team}>
-          <div className={styles.flag}>{FLAGS[match.away]}</div>
-          <div className={styles.name}>{match.away}</div>
+    <div style={s.card(hasResult)}>
+      <div style={s.header}>
+        <span style={s.date}>{fmtDate(match.date)}</span>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+          {earned !== null ? (
+            <>
+              <span style={earned>0?s.badgePts:s.badgeZero}>{earned>0?`+${earned} pts`:'0 pts'}</span>
+              {earned>0&&breakdown&&(
+                <div style={s.ptsDetail}>
+                  {breakdown.exact>0&&<span style={s.ptsChip}>🎯+{breakdown.exact}</span>}
+                  {breakdown.sign>0&&<span style={s.ptsChip}>✅+{breakdown.sign}</span>}
+                  {breakdown.scorer>0&&<span style={s.ptsChip}>⚽+{breakdown.scorer}</span>}
+                  {breakdown.minute>0&&<span style={s.ptsChip}>🕐+{breakdown.minute}</span>}
+                </div>
+              )}
+            </>
+          ) : tl ? <span style={s.badgeTime}>⏱ {tl}</span>
+            : !open && !hasResult ? <span style={s.closed}>Cerrada</span> : null}
         </div>
       </div>
 
-      {/* Player bet (non-admin) */}
+      <div style={s.teams}>
+        <div style={s.team}>
+          <div style={s.flag}>{FLAGS[match.home]||'🏳'}</div>
+          <div style={s.name}>{match.home}</div>
+        </div>
+        <div style={{textAlign:'center',padding:'0 8px'}}>
+          {hasResult ? <span style={s.scoreReal}>{result.home_goals} - {result.away_goals}</span>
+                     : <span style={s.vsText}>VS</span>}
+        </div>
+        <div style={s.team}>
+          <div style={s.flag}>{FLAGS[match.away]||'🏳'}</div>
+          <div style={s.name}>{match.away}</div>
+        </div>
+      </div>
+
       {!user.is_admin && (
-        <div className={styles.section}>
-          <div className={styles.sectionLabel}>Tu apuesta</div>
-          <div className={styles.scoreInputs}>
-            <input type="number" min="0" max="20" className={styles.scoreInput}
-              value={homeG} onChange={e=>setHomeG(e.target.value)}
-              disabled={!open} placeholder="0" />
-            <span>-</span>
-            <input type="number" min="0" max="20" className={styles.scoreInput}
-              value={awayG} onChange={e=>setAwayG(e.target.value)}
-              disabled={!open} placeholder="0" />
+        <div style={s.section}>
+          <div style={s.sectionLabel(false)}>Tu apuesta</div>
+          <div style={s.scoreInputs}>
+            <ScoreInput val={homeG} onChange={setHomeG} disabled={!open}/>
+            <span style={s.scoreDash}>-</span>
+            <ScoreInput val={awayG} onChange={setAwayG} disabled={!open}/>
           </div>
-
-          <div className={styles.extras}>
-            <div className={styles.extraField}>
-              <div className={styles.extraLabel}>⚽ Primer goleador</div>
-              <select className={styles.sel} value={scorer} onChange={e=>setScorer(e.target.value)} disabled={!open}>
-                <option value="">— Ninguno / sin goles —</option>
-                <optgroup label={`${FLAGS[match.home]} ${match.home}`}>
-                  {homeSquad.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </optgroup>
-                <optgroup label={`${FLAGS[match.away]} ${match.away}`}>
-                  {awaySquad.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </optgroup>
-              </select>
+          <div style={s.extras}>
+            <div>
+              <div style={s.extraLabel}>⚽ Primer goleador</div>
+              <PlayerSelect val={scorer} onChange={setScorer} disabled={!open}/>
             </div>
-            <div className={styles.extraField}>
-              <div className={styles.extraLabel}>🕐 Minuto primer gol</div>
-              <input type="number" min="1" max="120" className={styles.minInput}
-                value={minute} onChange={e=>setMinute(e.target.value)}
-                disabled={!open} placeholder="ej: 45" />
+            <div>
+              <div style={s.extraLabel}>🕐 Minuto primer gol</div>
+              <input type="number" min="1" max="120" value={minute} onChange={e=>setMinute(e.target.value)}
+                disabled={!open} placeholder="ej: 45" style={s.minInput(open)}/>
             </div>
           </div>
-
-          {open && (
-            <button
-              className={`${styles.btn} ${saved ? styles.btnSaved : styles.btnPrimary}`}
-              onClick={saveBet} disabled={saving}>
-              {saving ? 'Guardando…' : saved ? '✓ Guardada' : 'Guardar apuesta'}
-            </button>
-          )}
-          {!open && myBet && (
-            <div className={styles.savedBet}>
-              Tu apuesta: <strong>{myBet.home_goals} - {myBet.away_goals}</strong>
-              {myBet.scorer && <span> · ⚽ {myBet.scorer}</span>}
-              {myBet.minute && <span> · 🕐 min {myBet.minute}</span>}
-            </div>
-          )}
-          {!open && !myBet && (
-            <div className={styles.noBet}>Sin apuesta registrada</div>
-          )}
+          {open && <button style={saved?s.btnSaved:s.btnPrimary} onClick={saveBet} disabled={saving}>{saving?'Guardando…':saved?'✓ Guardada':'Guardar apuesta'}</button>}
+          {!open && myBet && <div style={s.savedBet}>Tu apuesta: <strong>{myBet.home_goals} - {myBet.away_goals}</strong>{myBet.scorer&&<span> · ⚽ {myBet.scorer}</span>}{myBet.minute&&<span> · 🕐 min {myBet.minute}</span>}</div>}
+          {!open && !myBet && <div style={s.noBet}>Sin apuesta registrada</div>}
         </div>
       )}
 
-      {/* Admin result */}
       {user.is_admin && (
-        <div className={styles.section}>
-          <div className={`${styles.sectionLabel} ${styles.adminLabel}`}>Resultado real</div>
-          <div className={styles.scoreInputs}>
-            <input type="number" min="0" className={styles.scoreInput}
-              value={rHomeG} onChange={e=>setRHomeG(e.target.value)} placeholder="0" />
-            <span>-</span>
-            <input type="number" min="0" className={styles.scoreInput}
-              value={rAwayG} onChange={e=>setRAwayG(e.target.value)} placeholder="0" />
+        <div style={s.section}>
+          <div style={s.sectionLabel(true)}>Resultado real</div>
+          <div style={s.scoreInputs}>
+            <input type="number" min="0" value={rHomeG} onChange={e=>setRHomeG(e.target.value)} placeholder="0" style={s.scoreInput(true)}/>
+            <span style={s.scoreDash}>-</span>
+            <input type="number" min="0" value={rAwayG} onChange={e=>setRAwayG(e.target.value)} placeholder="0" style={s.scoreInput(true)}/>
           </div>
-          <div className={styles.extras}>
-            <div className={styles.extraField}>
-              <div className={styles.extraLabel}>⚽ Primer goleador</div>
-              <select className={styles.sel} value={rScorer} onChange={e=>setRScorer(e.target.value)}>
-                <option value="">— Ninguno / sin goles —</option>
-                <optgroup label={`${FLAGS[match.home]} ${match.home}`}>
-                  {homeSquad.map(p => <option key={p} value={p}>{p}</option>)}
-                </optgroup>
-                <optgroup label={`${FLAGS[match.away]} ${match.away}`}>
-                  {awaySquad.map(p => <option key={p} value={p}>{p}</option>)}
-                </optgroup>
-              </select>
+          <div style={s.extras}>
+            <div>
+              <div style={s.extraLabel}>⚽ Primer goleador</div>
+              <PlayerSelect val={rScorer} onChange={setRScorer} disabled={false}/>
             </div>
-            <div className={styles.extraField}>
-              <div className={styles.extraLabel}>🕐 Minuto primer gol</div>
-              <input type="number" min="1" max="120" className={styles.minInput}
-                value={rMinute} onChange={e=>setRMinute(e.target.value)} placeholder="min" />
+            <div>
+              <div style={s.extraLabel}>🕐 Minuto primer gol</div>
+              <input type="number" min="1" max="120" value={rMinute} onChange={e=>setRMinute(e.target.value)} placeholder="min" style={s.minInput(true)}/>
             </div>
           </div>
-          <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={saveResult}>
-            Guardar resultado
-          </button>
+          <button style={s.btnSecondary} onClick={saveResult}>Guardar resultado</button>
         </div>
       )}
     </div>
