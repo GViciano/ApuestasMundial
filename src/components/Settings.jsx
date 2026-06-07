@@ -15,7 +15,7 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(true)
   // display name (for non-admin)
-  const [displayName, setDisplayName] = useState(currentUser.display_name || currentUser.username)
+  const [displayName, setDisplayName] = useState(() => currentUser.display_name || currentUser.username)
   const [dnSaved, setDnSaved] = useState(false)
 
   useEffect(() => { if (currentUser.is_admin) loadUsers() }, [])

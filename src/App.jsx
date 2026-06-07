@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase.js'
-import { GROUPS, FLAGS, DEF_PTS } from './data.js'
+import { GROUPS, DEF_PTS } from './data.js'
 import Login from './components/Login.jsx'
 import MatchCard from './components/MatchCard.jsx'
 import Ranking from './components/Ranking.jsx'
 import Settings from './components/Settings.jsx'
+import Flag from './components/Flag.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
+  const [displayName, setDisplayName] = useState('')
   const [tab, setTab] = useState('groups')
   const [group, setGroup] = useState('A')
   const [bets, setBets] = useState({})
@@ -36,15 +38,18 @@ export default function App() {
     setLoading(false)
   }
 
-  if (!user) return <Login onLogin={setUser}/>
+  const handleLogin = (u) => {
+    setUser(u)
+    setDisplayName(u.display_name || u.username)
+  }
+
+  if (!user) return <Login onLogin={handleLogin}/>
 
   const navItems = [
     {id:'groups', label:'⚽ Partidos'},
     {id:'ranking', label:'🏆 Ranking'},
     {id:'settings', label:'⚙️ Config'},
   ]
-
-  const displayName = user.display_name || user.username
 
   return (
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
@@ -54,7 +59,10 @@ export default function App() {
         <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
           {user.is_admin && <span style={{fontSize:11,background:'rgba(245,166,35,.2)',color:'var(--accent)',padding:'2px 7px',borderRadius:4,fontWeight:500}}>ADMIN</span>}
           <span style={{fontSize:13,color:'var(--text2)'}}>👤 {displayName}</span>
-          <button onClick={()=>setUser(null)} style={{background:'transparent',color:'var(--text2)',border:'1px solid var(--border)',borderRadius:7,padding:'5px 12px',fontSize:13,cursor:'pointer',fontFamily:'var(--font-b)'}}>Salir</button>
+          <button onClick={()=>{ setUser(null); setDisplayName('') }}
+            style={{background:'transparent',color:'var(--text2)',border:'1px solid var(--border)',borderRadius:7,padding:'5px 12px',fontSize:13,cursor:'pointer',fontFamily:'var(--font-b)'}}>
+            Salir
+          </button>
         </div>
       </div>
 
@@ -75,7 +83,6 @@ export default function App() {
       <div style={{flex:1,padding:20,maxWidth:800,margin:'0 auto',width:'100%'}}>
         {tab === 'groups' && (
           <>
-            {/* Group tabs */}
             <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
               {Object.keys(GROUPS).map(g => {
                 const hasBets = !user.is_admin && GROUPS[g].matches.some(m => bets[m.id])
@@ -91,30 +98,32 @@ export default function App() {
                 )
               })}
             </div>
-            {/* Teams */}
-            <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}}>
+            <div style={{display:'flex',gap:16,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
               {GROUPS[group].teams.map(t => (
-                <span key={t} style={{fontSize:13,color:'var(--text2)'}}>{FLAGS[t]||''} {t}</span>
+                <span key={t} style={{fontSize:13,color:'var(--text2)',display:'flex',alignItems:'center',gap:6}}>
+                  <Flag team={t} size={20}/> {t}
+                </span>
               ))}
             </div>
-            {/* Matches */}
-            {loading ? <div style={{color:'var(--text3)',textAlign:'center',padding:40}}>Cargando…</div>
+            {loading
+              ? <div style={{color:'var(--text3)',textAlign:'center',padding:40}}>Cargando…</div>
               : GROUPS[group].matches.map(m => (
                 <MatchCard key={m.id} match={m} user={user}
                   myBet={bets[m.id]} result={results[m.id]}
                   points={points} onBetSaved={loadGroupData} onResultSaved={loadGroupData}/>
-              ))}
+              ))
+            }
           </>
         )}
 
-        {tab === 'ranking' && <Ranking key={tab} points={points}/>}
+        {tab === 'ranking' && <Ranking key="ranking" points={points}/>}
 
         {tab === 'settings' && (
           <Settings
             points={points}
             currentUser={user}
             onPointsSaved={p => setPoints(p)}
-            onDisplayNameChanged={name => setUser({...user, display_name: name})}
+            onDisplayNameChanged={name => setDisplayName(name)}
           />
         )}
       </div>

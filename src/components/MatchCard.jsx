@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
-import { FLAGS, SQUADS, fmtDate, isOpen, timeLeft, calcPoints, calcPointsBreakdown } from '../data.js'
+import { SQUADS, fmtDate, isOpen, timeLeft, calcPoints, calcPointsBreakdown } from '../data.js'
+import Flag from './Flag.jsx'
 
 const s = {
   card:(hasResult)=>({background:'var(--bg2)',border:`1px solid ${hasResult?'var(--border2)':'var(--border)'}`,borderRadius:12,padding:16,marginBottom:10}),
@@ -81,10 +82,10 @@ export default function MatchCard({ match, user, myBet, result, points, onBetSav
   const PlayerSelect = ({val, onChange, disabled}) => (
     <select value={val} onChange={e=>onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
       <option value="">— Ninguno / sin goles —</option>
-      <optgroup label={`${FLAGS[match.home]||''} ${match.home}`}>
+      <optgroup label={`── ${match.home} ──`}>
         {homeSquad.map(p=><option key={p} value={p}>{p}</option>)}
       </optgroup>
-      <optgroup label={`${FLAGS[match.away]||''} ${match.away}`}>
+      <optgroup label={`── ${match.away} ──`}>
         {awaySquad.map(p=><option key={p} value={p}>{p}</option>)}
       </optgroup>
     </select>
@@ -114,7 +115,7 @@ export default function MatchCard({ match, user, myBet, result, points, onBetSav
 
       <div style={s.teams}>
         <div style={s.team}>
-          <div style={s.flag}>{FLAGS[match.home]||'🏳'}</div>
+          <Flag team={match.home} size={48} style={{borderRadius:4,marginBottom:6}}/>
           <div style={s.name}>{match.home}</div>
         </div>
         <div style={{textAlign:'center',padding:'0 8px'}}>
@@ -122,7 +123,7 @@ export default function MatchCard({ match, user, myBet, result, points, onBetSav
                      : <span style={s.vsText}>VS</span>}
         </div>
         <div style={s.team}>
-          <div style={s.flag}>{FLAGS[match.away]||'🏳'}</div>
+          <Flag team={match.away} size={48} style={{borderRadius:4,marginBottom:6}}/>
           <div style={s.name}>{match.away}</div>
         </div>
       </div>
