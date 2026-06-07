@@ -154,7 +154,6 @@ export default function App() {
 
         {tab === 'settings' && (
           <Settings
-            key={displayName}
             points={points}
             currentUser={user}
             onPointsSaved={p => setPoints(p)}

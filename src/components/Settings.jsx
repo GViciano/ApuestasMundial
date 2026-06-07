@@ -14,18 +14,24 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const [newP, setNewP] = useState('')
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(true)
-  // If display_name is the same as username (e.g. an email), treat as unset
-  const initialDisplayName = currentUser.display_name && currentUser.display_name !== currentUser.username
-    ? currentUser.display_name
-    : ''
+  const [dnStatus, setDnStatus] = useState('') // '', 'saving', 'ok', 'error'
+  const [dnMsg, setDnMsg] = useState('')
 
-  const [dnSaved, setDnSaved] = useState(false)
+  // Uncontrolled input — never touched by React after mount
   const dnRef = useRef(null)
-  useEffect(() => {
-    if (dnRef.current) dnRef.current.value = initialDisplayName
-  }, [])
 
-  useEffect(() => { if (currentUser.is_admin) loadUsers() }, [])
+  // On mount: fetch the REAL current display_name from Supabase (ignore stale prop)
+  useEffect(() => {
+    supabase.from('profiles').select('display_name, username').eq('id', currentUser.id).single()
+      .then(({ data }) => {
+        if (dnRef.current && data) {
+          const name = (data.display_name && data.display_name !== data.username)
+            ? data.display_name : ''
+          dnRef.current.value = name
+        }
+      })
+    if (currentUser.is_admin) loadUsers()
+  }, [])  // empty deps: run once on mount, never re-run
 
   const loadUsers = async () => {
     const { data } = await supabase.from('profiles').select('*').eq('is_admin', false).order('username')
@@ -33,24 +39,31 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   }
 
   const savePoints = async () => {
-    await supabase.from('config').upsert({ key:'points', value:pts })
+    await supabase.from('config').upsert({ key: 'points', value: pts })
     setSavedPts(true)
     setTimeout(() => setSavedPts(false), 1500)
     onPointsSaved(pts)
   }
 
-  const saveDisplayName = useCallback(async () => {
+  const saveDisplayName = async () => {
     const name = dnRef.current?.value?.trim()
-    if (!name) return
-    const { error } = await supabase.from('profiles').update({ display_name: name }).eq('id', currentUser.id)
+    if (!name) { setDnMsg('Escribe un nombre'); setDnStatus('error'); return }
+    setDnStatus('saving')
+    const { error } = await supabase.from('profiles')
+      .update({ display_name: name })
+      .eq('id', currentUser.id)
     if (error) {
-      alert('Error al guardar: ' + error.message)
+      setDnMsg('Error: ' + error.message)
+      setDnStatus('error')
       return
     }
-    setDnSaved(true)
-    setTimeout(() => setDnSaved(false), 1500)
+    // Update the input to show what was saved (don't reset it)
+    if (dnRef.current) dnRef.current.value = name
+    setDnStatus('ok')
+    setDnMsg('')
+    setTimeout(() => setDnStatus(''), 2000)
     onDisplayNameChanged(name)
-  }, [currentUser.id, onDisplayNameChanged])
+  }
 
   const addUser = async () => {
     if (newU.trim().length < 3) return showMsg('Mínimo 3 caracteres', false)
@@ -73,46 +86,72 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
 
   const showMsg = (txt, ok) => { setMsg(txt); setMsgOk(ok) }
 
-  const SH = ({children}) => <h3 style={{fontSize:13,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:12}}>{children}</h3>
-  const Section = ({children, last}) => <div style={{marginBottom:last?0:28,paddingBottom:last?0:28,borderBottom:last?'none':'1px solid var(--border)'}}>{children}</div>
+  const SH = ({children}) => (
+    <h3 style={{fontSize:13,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:12}}>
+      {children}
+    </h3>
+  )
+  const Section = ({children, last}) => (
+    <div style={{marginBottom:last?0:28,paddingBottom:last?0:28,borderBottom:last?'none':'1px solid var(--border)'}}>
+      {children}
+    </div>
+  )
+
+  const dnBtnStyle = dnStatus === 'ok'
+    ? {...btnS, color:'var(--green)'}
+    : dnStatus === 'saving'
+    ? {...btnS, opacity:.6}
+    : btnP
 
   return (
     <div>
       <h2 style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:1,marginBottom:20}}>CONFIGURACIÓN</h2>
 
-      {/* Display name — uncontrolled input via ref to avoid re-render issues */}
+      {/* Display name */}
       <Section>
         <SH>Tu nombre visible</SH>
-        <p style={{fontSize:13,color:'var(--text3)',marginBottom:12}}>Este nombre aparece en el ranking.</p>
+        <p style={{fontSize:13,color:'var(--text3)',marginBottom:12}}>
+          Este nombre aparece en el ranking. Escríbelo y pulsa Guardar.
+        </p>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           <input
             ref={dnRef}
-            defaultValue={initialDisplayName}
             placeholder="Escribe tu nombre aquí"
             style={{...inp, flex:1}}
             onKeyDown={e => e.key === 'Enter' && saveDisplayName()}
           />
-          <button style={dnSaved ? {...btnS, color:'var(--green)'} : btnP} onClick={saveDisplayName}>
-            {dnSaved ? '✓ Guardado' : 'Guardar'}
+          <button style={dnBtnStyle} onClick={saveDisplayName} disabled={dnStatus==='saving'}>
+            {dnStatus === 'ok' ? '✓ Guardado' : dnStatus === 'saving' ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
+        {dnMsg && (
+          <div style={{fontSize:12,marginTop:6,color:dnStatus==='error'?'var(--red)':'var(--green)'}}>
+            {dnMsg}
+          </div>
+        )}
       </Section>
 
       {/* Points — admin only */}
       {currentUser.is_admin && (
         <Section>
           <SH>Puntos por acierto</SH>
-          <p style={{fontSize:12,color:'var(--text3)',marginBottom:12,fontStyle:'italic'}}>Exacto y ganador se acumulan si se aciertan ambos.</p>
+          <p style={{fontSize:12,color:'var(--text3)',marginBottom:12,fontStyle:'italic'}}>
+            Exacto y ganador se acumulan si se aciertan ambos.
+          </p>
           {[
             ['exact',  '🎯 Resultado exacto'],
             ['sign',   '✅ Ganador / empate correcto'],
             ['scorer', '⚽ Primer goleador'],
             ['minute', '🕐 Tramo del primer gol exacto'],
-          ].map(([f,l]) => (
-            <div key={f} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,padding:'14px 16px',marginBottom:8,fontSize:14}}>
+          ].map(([f, l]) => (
+            <div key={f} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',
+              background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,
+              padding:'14px 16px',marginBottom:8,fontSize:14}}>
               <span>{l}</span>
-              <input type="number" min="0" max="20" value={pts[f]} onChange={e=>setPts({...pts,[f]:+e.target.value})}
-                style={{width:60,textAlign:'center',background:'var(--bg4)',border:'1px solid var(--border2)',borderRadius:8,padding:8,color:'var(--accent)',fontSize:20,fontFamily:'var(--font-d)'}}/>
+              <input type="number" min="0" max="20" value={pts[f]}
+                onChange={e => setPts({...pts, [f]: +e.target.value})}
+                style={{width:60,textAlign:'center',background:'var(--bg4)',border:'1px solid var(--border2)',
+                  borderRadius:8,padding:8,color:'var(--accent)',fontSize:20,fontFamily:'var(--font-d)'}}/>
             </div>
           ))}
           <button style={savedPts ? {...btnS, color:'var(--green)'} : btnP} onClick={savePoints}>
@@ -126,25 +165,39 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
         <Section last>
           <SH>Gestión de usuarios</SH>
           <div style={{marginBottom:12}}>
-            {users.length === 0 && <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>}
+            {users.length === 0 && (
+              <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>
+            )}
             {users.map(u => (
-              <div key={u.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 14px',marginBottom:6,fontSize:14}}>
+              <div key={u.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,
+                padding:'10px 14px',marginBottom:6,fontSize:14}}>
                 <div>
                   <span>👤 {u.username}</span>
                   {u.display_name && u.display_name !== u.username && (
                     <span style={{color:'var(--text3)',fontSize:12,marginLeft:8}}>({u.display_name})</span>
                   )}
                 </div>
-                <button style={btnD} onClick={()=>deleteUser(u.id, u.username)}>Eliminar</button>
+                <button style={btnD} onClick={() => deleteUser(u.id, u.username)}>Eliminar</button>
               </div>
             ))}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:8,alignItems:'center'}}>
-            <input style={inp} placeholder="Nuevo usuario" value={newU} onChange={e=>setNewU(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addUser()}/>
-            <input style={inp} type="password" placeholder="Contraseña" value={newP} onChange={e=>setNewP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addUser()}/>
+            <input style={inp} placeholder="Nuevo usuario" value={newU}
+              onChange={e => setNewU(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addUser()}/>
+            <input style={inp} type="password" placeholder="Contraseña" value={newP}
+              onChange={e => setNewP(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addUser()}/>
             <button style={btnS} onClick={addUser}>Añadir</button>
           </div>
-          {msg && <div style={{fontSize:13,marginTop:8,padding:'7px 10px',borderRadius:6,color:msgOk?'var(--green)':'var(--red)',background:msgOk?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'}}>{msg}</div>}
+          {msg && (
+            <div style={{fontSize:13,marginTop:8,padding:'7px 10px',borderRadius:6,
+              color:msgOk?'var(--green)':'var(--red)',
+              background:msgOk?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'}}>
+              {msg}
+            </div>
+          )}
         </Section>
       )}
     </div>
