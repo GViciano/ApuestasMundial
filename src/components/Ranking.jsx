@@ -10,7 +10,12 @@ export default function Ranking({ points }) {
 
   const load = async () => {
     setLoading(true)
-    const allMatches = Object.values(GROUPS).flatMap(g => g.matches)
+    const allGroupMatches = Object.values(GROUPS).flatMap(g => g.matches)
+    const { data: koMatches } = await supabase.from('ko_matches').select('*')
+    const allMatches = [
+      ...allGroupMatches,
+      ...(koMatches || []).map(m => ({ id: m.id, phase: 'ko' })),
+    ]
     const [{ data: profiles }, { data: bets }, { data: results }] = await Promise.all([
       supabase.from('profiles').select('*').eq('is_admin', false),
       supabase.from('bets').select('*'),

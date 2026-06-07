@@ -6,6 +6,7 @@ import MatchCard from './components/MatchCard.jsx'
 import Ranking from './components/Ranking.jsx'
 import Settings from './components/Settings.jsx'
 import Flag from './components/Flag.jsx'
+import KOSection from './components/KOSection.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -61,9 +62,10 @@ export default function App() {
   if (!user) return <Login onLogin={handleLogin}/>
 
   const navItems = [
-    {id:'groups', label:'⚽ Partidos'},
-    {id:'ranking', label:'🏆 Ranking'},
-    {id:'settings', label:'⚙️ Config'},
+    {id:'groups',  label:'⚽ Grupos'},
+    {id:'ko',      label:'🏆 Eliminatorios'},
+    {id:'ranking', label:'📊 Ranking'},
+    {id:'settings',label:'⚙️ Config'},
   ]
 
   return (
@@ -132,6 +134,8 @@ export default function App() {
             }
           </>
         )}
+
+        {tab === 'ko' && <KOSection user={user} points={points}/>}
 
         {tab === 'ranking' && <Ranking key="ranking" points={points}/>}
 

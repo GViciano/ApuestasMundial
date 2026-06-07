@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
-import { SQUADS, fmtDate, isOpen, timeLeft, calcPoints, calcPointsBreakdown, getSign } from '../data.js'
+import { SQUADS, fmtDate, isOpen, timeLeft, calcPoints, calcPointsBreakdown, getSign, MINUTE_RANGES_GROUP, MINUTE_RANGES_KO } from '../data.js'
 import Flag from './Flag.jsx'
 
 const s = {
@@ -82,6 +82,17 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
     onResultSaved?.()
   }
 
+  const minuteRanges = match.phase === 'ko' ? MINUTE_RANGES_KO : MINUTE_RANGES_GROUP
+
+  const MinuteSelect = ({val, onChange, disabled}) => (
+    <select value={val} onChange={e=>onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
+      <option value="">— Tramo —</option>
+      {minuteRanges.map(r => (
+        <option key={r.value} value={r.value}>{r.label}</option>
+      ))}
+    </select>
+  )
+
   const PlayerSelect = ({val, onChange, disabled}) => (
     <select value={val} onChange={e=>onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
       <option value="">— Ninguno / sin goles —</option>
@@ -154,9 +165,8 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
               <PlayerSelect val={scorer} onChange={setScorer} disabled={!open}/>
             </div>
             <div>
-              <div style={s.extraLabel}>🕐 Minuto primer gol</div>
-              <input type="number" min="1" max="120" value={minute} onChange={e=>setMinute(e.target.value)}
-                disabled={!open} placeholder="ej: 45" style={s.minInput(open)}/>
+              <div style={s.extraLabel}>🕐 Tramo del primer gol</div>
+              <MinuteSelect val={minute} onChange={setMinute} disabled={!open}/>
             </div>
           </div>
           {open && (
@@ -167,8 +177,8 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
           {!open && myBet && (
             <div style={s.savedBet}>
               Tu apuesta: <strong>{myBet.home_goals} - {myBet.away_goals}</strong>
-              {myBet.scorer&&<span> · ⚽ {myBet.scorer}</span>}
-              {myBet.minute&&<span> · 🕐 min {myBet.minute}</span>}
+              {myBet.scorer && <span> · ⚽ {myBet.scorer}</span>}
+              {myBet.minute && <span> · 🕐 {myBet.minute}'</span>}
             </div>
           )}
           {!open && !myBet && (
@@ -192,9 +202,8 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
               <PlayerSelect val={rScorer} onChange={setRScorer} disabled={false}/>
             </div>
             <div>
-              <div style={s.extraLabel}>🕐 Minuto primer gol</div>
-              <input type="number" min="1" max="120" value={rMinute} onChange={e=>setRMinute(e.target.value)}
-                placeholder="min" style={s.minInput(true)}/>
+              <div style={s.extraLabel}>🕐 Tramo del primer gol</div>
+              <MinuteSelect val={rMinute} onChange={setRMinute} disabled={false}/>
             </div>
           </div>
           <button style={s.btnSecondary} onClick={saveResult}>Guardar resultado</button>
@@ -226,7 +235,7 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
                       </span>
                       <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>{signLabel(b.home_goals,b.away_goals)}</span>
                       {b.scorer && <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>⚽ {b.scorer}</span>}
-                      {b.minute && <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>🕐 min {b.minute}</span>}
+                      {b.minute && <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>🕐 {b.minute}'</span>}
                     </div>
                     {bPts !== null && (
                       <span style={{fontSize:12,fontWeight:600,

@@ -16,7 +16,7 @@ create table bets (
   home_goals int not null,
   away_goals int not null,
   scorer text,
-  minute int,
+  minute text,
   created_at timestamptz default now(),
   unique(user_id, match_id)
 );
@@ -27,8 +27,19 @@ create table results (
   home_goals int not null,
   away_goals int not null,
   scorer text,
-  minute int,
+  minute text,
   updated_at timestamptz default now()
+);
+
+-- Partidos eliminatorios creados por el admin
+create table ko_matches (
+  id text primary key,           -- ej: 'R32_1', 'QF_1', 'SF_1', 'F_1'
+  round text not null,           -- 'R32', 'QF', 'SF', 'F', '3rd'
+  round_label text not null,     -- 'Dieciseisavos', 'Cuartos', 'Semifinal', 'Final', '3er puesto'
+  home text not null,
+  away text not null,
+  match_date timestamptz,
+  created_at timestamptz default now()
 );
 
 create table config (
@@ -43,3 +54,14 @@ alter table profiles disable row level security;
 alter table bets disable row level security;
 alter table results disable row level security;
 alter table config disable row level security;
+alter table ko_matches disable row level security;
+
+-- MIGRACION (si ya tenías la BD):
+-- ALTER TABLE bets ALTER COLUMN minute TYPE text USING minute::text;
+-- ALTER TABLE results ALTER COLUMN minute TYPE text USING minute::text;
+-- CREATE TABLE ko_matches (
+--   id text primary key, round text not null, round_label text not null,
+--   home text not null, away text not null, match_date timestamptz,
+--   created_at timestamptz default now()
+-- );
+-- ALTER TABLE ko_matches DISABLE ROW LEVEL SECURITY;
