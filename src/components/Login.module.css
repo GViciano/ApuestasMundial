@@ -1,0 +1,25 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(ellipse at 50% 0%, #1a2c50 0%, var(--bg) 70%);
+}
+.box { width: 100%; max-width: 400px; }
+.logo { text-align: center; margin-bottom: 32px; }
+.big { font-family: var(--font-d); font-size: 64px; color: var(--accent); letter-spacing: 3px; line-height: 1; }
+.sub { font-family: var(--font-d); font-size: 20px; color: var(--text2); letter-spacing: 5px; margin-top: 4px; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg); border-radius: 10px; padding: 4px; }
+.tabs button { flex: 1; padding: 8px; border-radius: 7px; border: none; background: transparent; color: var(--text2); font-weight: 500; font-size: 14px; cursor: pointer; transition: all .15s; }
+.tabs button.active { background: var(--accent); color: #0a0f1e; }
+.form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .8px; }
+.field input { background: var(--bg4); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; width: 100%; }
+.field input:focus { border-color: var(--border2); }
+.err { font-size: 13px; color: var(--red); padding: 8px 12px; background: rgba(239,68,68,.1); border-radius: 7px; }
+.submit { background: var(--accent); color: #0a0f1e; font-weight: 600; font-size: 15px; padding: 12px; border-radius: 8px; width: 100%; border: none; cursor: pointer; margin-top: 4px; transition: all .15s; }
+.submit:hover { background: #e8961a; }
+.submit:disabled { opacity: .6; cursor: not-allowed; }

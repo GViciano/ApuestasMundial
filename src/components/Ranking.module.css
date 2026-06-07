@@ -1,0 +1,15 @@
+.title { font-family: var(--font-d); font-size: 28px; letter-spacing: 1px; margin-bottom: 20px; }
+.loading, .empty { color: var(--text3); font-size: 14px; text-align: center; padding: 40px 0; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+.first { background: rgba(245,166,35,.08); border-color: rgba(245,166,35,.3); }
+.pos { font-family: var(--font-d); font-size: 24px; color: var(--text3); text-align: center; }
+.medal { color: var(--accent); }
+.info { min-width: 0; }
+.name { font-weight: 500; font-size: 14px; }
+.detail { font-size: 12px; color: var(--text3); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+.pts { text-align: right; }
+.ptsNum { font-family: var(--font-d); font-size: 30px; color: var(--text); }
+.ptsGold { color: var(--accent); }
+.ptsSub { font-size: 11px; color: var(--text3); }
+.betCount { color: var(--text3); }

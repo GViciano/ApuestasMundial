@@ -1,0 +1,19 @@
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.headerTitle { font-family: var(--font-d); font-size: 22px; letter-spacing: 2px; color: var(--accent); }
+.headerRight { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.adminBadge { font-size: 11px; background: rgba(245,166,35,.2); color: var(--accent); padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+.uname { font-size: 13px; color: var(--text2); }
+.logoutBtn { background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; font-size: 13px; cursor: pointer; font-family: var(--font-b); }
+.logoutBtn:hover { background: var(--bg4); }
+.nav { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; padding: 0 16px; overflow-x: auto; }
+.navBtn { padding: 11px 18px; border: none; background: transparent; color: var(--text2); border-bottom: 2px solid transparent; font-weight: 500; font-size: 14px; cursor: pointer; font-family: var(--font-b); white-space: nowrap; transition: all .15s; }
+.navActive { color: var(--accent); border-bottom-color: var(--accent); }
+.content { flex: 1; padding: 20px; max-width: 800px; margin: 0 auto; width: 100%; }
+.groupTabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.groupTab { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg2); color: var(--text2); font-weight: 500; font-size: 13px; cursor: pointer; font-family: var(--font-b); position: relative; transition: all .15s; }
+.groupActive { border-color: var(--accent); background: rgba(245,166,35,.1); color: var(--accent); }
+.dot { position: absolute; top: -4px; right: -4px; width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+.groupTeams { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.teamChip { font-size: 13px; color: var(--text2); }
+.loading { color: var(--text3); font-size: 14px; text-align: center; padding: 40px 0; }
