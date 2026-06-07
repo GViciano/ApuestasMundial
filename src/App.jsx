@@ -67,6 +67,7 @@ export default function App() {
 
   const handleDisplayNameChanged = useCallback((name) => {
     setDisplayName(name)
+    setUser(prev => ({ ...prev, display_name: name }))
   }, [])
 
   if (!user) return <Login onLogin={handleLogin}/>
@@ -85,7 +86,9 @@ export default function App() {
         <div style={{fontFamily:'var(--font-d)',fontSize:22,letterSpacing:2,color:'var(--accent)'}}>⚽ MUNDIAL 2026</div>
         <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
           {user.is_admin && <span style={{fontSize:11,background:'rgba(245,166,35,.2)',color:'var(--accent)',padding:'2px 7px',borderRadius:4,fontWeight:500}}>ADMIN</span>}
-          <span style={{fontSize:13,color:'var(--text2)'}}>👤 {displayName}</span>
+          <span style={{fontSize:13,color:'var(--text2)'}}>
+            👤 {displayName && displayName !== user.username ? displayName : user.username.includes('@') ? '(sin nombre)' : displayName}
+          </span>
           <button onClick={()=>{ setUser(null); setDisplayName('') }}
             style={{background:'transparent',color:'var(--text2)',border:'1px solid var(--border)',borderRadius:7,padding:'5px 12px',fontSize:13,cursor:'pointer',fontFamily:'var(--font-b)'}}>
             Salir
@@ -151,6 +154,7 @@ export default function App() {
 
         {tab === 'settings' && (
           <Settings
+            key={displayName}
             points={points}
             currentUser={user}
             onPointsSaved={p => setPoints(p)}

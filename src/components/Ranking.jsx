@@ -36,7 +36,10 @@ export default function Ranking({ points }) {
         exactPts+=bd.exact; signPts+=bd.sign; scorerPts+=bd.scorer; minutePts+=bd.minute
         total+=bd.exact+bd.sign+bd.scorer+bd.minute
       })
-      return { username: u.username, displayName: u.display_name||u.username, total, exactPts, signPts, scorerPts, minutePts, placed }
+      const displayName = (u.display_name && u.display_name !== u.username)
+        ? u.display_name
+        : u.username.includes('@') ? '(sin nombre)' : u.username
+      return { username: u.username, displayName, total, exactPts, signPts, scorerPts, minutePts, placed }
     }).sort((a,b) => b.total-a.total)
 
     setScores(scores)

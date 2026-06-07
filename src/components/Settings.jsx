@@ -14,18 +14,15 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const [newP, setNewP] = useState('')
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(true)
+  // If display_name is the same as username (e.g. an email), treat as unset
+  const initialDisplayName = currentUser.display_name && currentUser.display_name !== currentUser.username
+    ? currentUser.display_name
+    : ''
+
   const [dnSaved, setDnSaved] = useState(false)
-
-  // Use a ref for the display name input so it never loses focus
   const dnRef = useRef(null)
-  // Keep the current value in a ref too so saveDisplayName can read it
-  const dnValueRef = useRef(currentUser.display_name || currentUser.username)
-
-  // Initialize the input value once on mount
   useEffect(() => {
-    if (dnRef.current) {
-      dnRef.current.value = dnValueRef.current
-    }
+    if (dnRef.current) dnRef.current.value = initialDisplayName
   }, [])
 
   useEffect(() => { if (currentUser.is_admin) loadUsers() }, [])
@@ -90,8 +87,8 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           <input
             ref={dnRef}
-            defaultValue={currentUser.display_name || currentUser.username}
-            placeholder="Tu nombre"
+            defaultValue={initialDisplayName}
+            placeholder="Escribe tu nombre aquí"
             style={{...inp, flex:1}}
             onKeyDown={e => e.key === 'Enter' && saveDisplayName()}
           />
