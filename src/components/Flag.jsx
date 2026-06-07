@@ -1,4 +1,4 @@
-// Códigos ISO 3166-1 alpha-2 para cada selección
+// Todos los SVGs vienen de flagicons.lipis.dev (funciona en GitHub Pages sin problemas de CORS)
 const CODES = {
   "México":"mx","Sudáfrica":"za","Corea del Sur":"kr","Chequia":"cz",
   "Canadá":"ca","Suiza":"ch","Qatar":"qa","Bosnia":"ba",
@@ -18,9 +18,7 @@ export default function Flag({ team, size = 32, style: extraStyle }) {
   const code = CODES[team]
   if (!code) return null
 
-  const url = code.includes('-')
-    ? `https://flagicons.lipis.dev/flags/4x3/${code}.svg`
-    : `https://flagcdn.com/${size}x${Math.round(size * 0.75)}/${code}.png`
+  const url = `https://flagicons.lipis.dev/flags/4x3/${code}.svg`
 
   return (
     <img

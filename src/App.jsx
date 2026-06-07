@@ -13,6 +13,8 @@ export default function App() {
   const [tab, setTab] = useState('groups')
   const [group, setGroup] = useState('A')
   const [bets, setBets] = useState({})
+  const [allBets, setAllBets] = useState({})   // bets de todos los usuarios, por match_id
+  const [allProfiles, setAllProfiles] = useState({}) // id -> display_name
   const [results, setResults] = useState({})
   const [points, setPoints] = useState(DEF_PTS)
   const [loading, setLoading] = useState(false)
@@ -28,13 +30,26 @@ export default function App() {
   const loadGroupData = async () => {
     setLoading(true)
     const matchIds = GROUPS[group].matches.map(m => m.id)
-    const [betsRes, resultsRes] = await Promise.all([
+    const [betsRes, resultsRes, allBetsRes, profilesRes] = await Promise.all([
       supabase.from('bets').select('*').eq('user_id', user.id).in('match_id', matchIds),
       supabase.from('results').select('*').in('match_id', matchIds),
+      supabase.from('bets').select('*').in('match_id', matchIds),
+      supabase.from('profiles').select('id, username, display_name').eq('is_admin', false),
     ])
     const betsMap = {}; betsRes.data?.forEach(b => { betsMap[b.match_id] = b })
     const resMap = {}; resultsRes.data?.forEach(r => { resMap[r.match_id] = r })
+    // allBets: { match_id: [bet, bet, ...] }
+    const allBetsMap = {}
+    allBetsRes.data?.forEach(b => {
+      if (!allBetsMap[b.match_id]) allBetsMap[b.match_id] = []
+      allBetsMap[b.match_id].push(b)
+    })
+    // profiles: { id: display_name }
+    const profilesMap = {}
+    profilesRes.data?.forEach(p => { profilesMap[p.id] = p.display_name || p.username })
+
     setBets(betsMap); setResults(resMap)
+    setAllBets(allBetsMap); setAllProfiles(profilesMap)
     setLoading(false)
   }
 
@@ -110,6 +125,8 @@ export default function App() {
               : GROUPS[group].matches.map(m => (
                 <MatchCard key={m.id} match={m} user={user}
                   myBet={bets[m.id]} result={results[m.id]}
+                  allBets={allBets[m.id] || []}
+                  allProfiles={allProfiles}
                   points={points} onBetSaved={loadGroupData} onResultSaved={loadGroupData}/>
               ))
             }
