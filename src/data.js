@@ -166,18 +166,18 @@ export const GROUPS = {
 export const DEF_PTS = { exact: 3, sign: 1, scorer: 2, minute: 1 }
 
 export const MINUTE_RANGES_GROUP = [
-  { value: "1-15",    label: "10027 2013 150027" },
-  { value: "16-30",   label: "160027 2013 300027" },
-  { value: "31-45+",  label: "310027 2013 45+0027" },
-  { value: "46-60",   label: "460027 2013 600027" },
-  { value: "61-75",   label: "610027 2013 750027" },
-  { value: "76-90+",  label: "760027 2013 90+0027" },
+  { value: "1-15",   label: "1' - 15'" },
+  { value: "16-30",  label: "16' - 30'" },
+  { value: "31-45+", label: "31' - 45+'" },
+  { value: "46-60",  label: "46' - 60'" },
+  { value: "61-75",  label: "61' - 75'" },
+  { value: "76-90+", label: "76' - 90+'" },
 ]
 
 export const MINUTE_RANGES_KO = [
   ...MINUTE_RANGES_GROUP,
-  { value: "91-105+",  label: "910027 2013 105+0027 (pr00f3rroga)" },
-  { value: "106-120+", label: "1060027 2013 120+0027 (pr00f3rroga)" },
+  { value: "91-105+",  label: "91' - 105+' (prorroga)" },
+  { value: "106-120+", label: "106' - 120+' (prorroga)" },
 ]
 
 export function fmtDate(iso) {

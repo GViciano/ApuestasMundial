@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase.js'
 import { GROUPS, DEF_PTS } from './data.js'
 import Login from './components/Login.jsx'
@@ -59,11 +59,15 @@ export default function App() {
     setDisplayName(u.display_name || u.username)
   }
 
+  const handleDisplayNameChanged = useCallback((name) => {
+    setDisplayName(name)
+  }, [])
+
   if (!user) return <Login onLogin={handleLogin}/>
 
   const navItems = [
     {id:'groups',  label:'⚽ Grupos'},
-    {id:'ko',      label:'🏆 Eliminatorios'},
+    {id:'ko',      label:'🏆 Cruces'},
     {id:'ranking', label:'📊 Ranking'},
     {id:'settings',label:'⚙️ Config'},
   ]
@@ -144,7 +148,7 @@ export default function App() {
             points={points}
             currentUser={user}
             onPointsSaved={p => setPoints(p)}
-            onDisplayNameChanged={name => setDisplayName(name)}
+            onDisplayNameChanged={handleDisplayNameChanged}
           />
         )}
       </div>

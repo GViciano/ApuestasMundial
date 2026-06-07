@@ -116,7 +116,7 @@ export default function KOSection({ user, points }) {
       {user.is_admin && (
         <div style={{marginBottom:16}}>
           <button style={btn('secondary')} onClick={()=>setShowAddForm(v=>!v)}>
-            {showAddForm ? '✕ Cancelar' : '+ Añadir partido eliminatorio'}
+            {showAddForm ? '✕ Cancelar' : '+ Añadir cruce'}
           </button>
           {addMsg && (
             <span style={{marginLeft:12,fontSize:13,color:addMsg.startsWith('✓')?'var(--green)':'var(--red)'}}>
@@ -125,7 +125,7 @@ export default function KOSection({ user, points }) {
           )}
           {showAddForm && (
             <div style={{marginTop:12,background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:12,padding:16,display:'flex',flexDirection:'column',gap:10}}>
-              <div style={{fontSize:12,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:4}}>Nuevo partido eliminatorio</div>
+              <div style={{fontSize:12,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:4}}>Nuevo cruce</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                 <div>
                   <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>Ronda</div>
@@ -177,8 +177,8 @@ export default function KOSection({ user, points }) {
       ) : koMatches.length === 0 ? (
         <div style={{textAlign:'center',padding:40,color:'var(--text3)'}}>
           <div style={{fontSize:32,marginBottom:12}}>🏆</div>
-          <div style={{fontSize:14,marginBottom:4}}>Los partidos eliminatorios aún no están disponibles</div>
-          {user.is_admin && <div style={{fontSize:12}}>Añádelos cuando terminen los grupos</div>}
+          <div style={{fontSize:14,marginBottom:4}}>Los cruces aún no están disponibles</div>
+          {user.is_admin && <div style={{fontSize:12}}>El admin los añadirá cuando terminen los grupos</div>}
         </div>
       ) : matchesInRound.length === 0 ? (
         <div style={{color:'var(--text3)',textAlign:'center',padding:32,fontSize:13}}>

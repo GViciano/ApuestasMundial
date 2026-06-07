@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabase.js'
 
 const inp = {background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:8,padding:'9px 12px',color:'var(--text)',fontSize:14,width:'100%',fontFamily:'var(--font-b)'}
@@ -14,9 +14,19 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const [newP, setNewP] = useState('')
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(true)
-  // display name (for non-admin)
-  const [displayName, setDisplayName] = useState(() => currentUser.display_name || currentUser.username)
   const [dnSaved, setDnSaved] = useState(false)
+
+  // Use a ref for the display name input so it never loses focus
+  const dnRef = useRef(null)
+  // Keep the current value in a ref too so saveDisplayName can read it
+  const dnValueRef = useRef(currentUser.display_name || currentUser.username)
+
+  // Initialize the input value once on mount
+  useEffect(() => {
+    if (dnRef.current) {
+      dnRef.current.value = dnValueRef.current
+    }
+  }, [])
 
   useEffect(() => { if (currentUser.is_admin) loadUsers() }, [])
 
@@ -32,13 +42,15 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
     onPointsSaved(pts)
   }
 
-  const saveDisplayName = async () => {
-    if (!displayName.trim()) return
-    await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', currentUser.id)
+  const saveDisplayName = useCallback(async () => {
+    const name = dnRef.current?.value?.trim()
+    if (!name) return
+    await supabase.from('profiles').update({ display_name: name }).eq('id', currentUser.id)
     setDnSaved(true)
     setTimeout(() => setDnSaved(false), 1500)
-    onDisplayNameChanged(displayName.trim())
-  }
+    // notify parent WITHOUT causing Settings to remount
+    onDisplayNameChanged(name)
+  }, [currentUser.id, onDisplayNameChanged])
 
   const addUser = async () => {
     if (newU.trim().length < 3) return showMsg('Mínimo 3 caracteres', false)
@@ -62,21 +74,26 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const showMsg = (txt, ok) => { setMsg(txt); setMsgOk(ok) }
 
   const SH = ({children}) => <h3 style={{fontSize:13,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:12}}>{children}</h3>
-  const Section = ({children}) => <div style={{marginBottom:28,paddingBottom:28,borderBottom:'1px solid var(--border)'}}>{children}</div>
+  const Section = ({children, last}) => <div style={{marginBottom:last?0:28,paddingBottom:last?0:28,borderBottom:last?'none':'1px solid var(--border)'}}>{children}</div>
 
   return (
     <div>
       <h2 style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:1,marginBottom:20}}>CONFIGURACIÓN</h2>
 
-      {/* Display name — visible for everyone */}
+      {/* Display name — uncontrolled input via ref to avoid re-render issues */}
       <Section>
         <SH>Tu nombre visible</SH>
-        <p style={{fontSize:13,color:'var(--text3)',marginBottom:12}}>Este es el nombre que verán los demás en el ranking.</p>
+        <p style={{fontSize:13,color:'var(--text3)',marginBottom:12}}>Este nombre aparece en el ranking.</p>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input style={{...inp,flex:1}} value={displayName} onChange={e=>setDisplayName(e.target.value)}
-            placeholder="Tu nombre" onKeyDown={e=>e.key==='Enter'&&saveDisplayName()}/>
-          <button style={dnSaved?{...btnS,color:'var(--green)'}:btnP} onClick={saveDisplayName}>
-            {dnSaved?'✓ Guardado':'Guardar'}
+          <input
+            ref={dnRef}
+            defaultValue={currentUser.display_name || currentUser.username}
+            placeholder="Tu nombre"
+            style={{...inp, flex:1}}
+            onKeyDown={e => e.key === 'Enter' && saveDisplayName()}
+          />
+          <button style={dnSaved ? {...btnS, color:'var(--green)'} : btnP} onClick={saveDisplayName}>
+            {dnSaved ? '✓ Guardado' : 'Guardar'}
           </button>
         </div>
       </Section>
@@ -86,32 +103,39 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
         <Section>
           <SH>Puntos por acierto</SH>
           <p style={{fontSize:12,color:'var(--text3)',marginBottom:12,fontStyle:'italic'}}>Exacto y ganador se acumulan si se aciertan ambos.</p>
-          {[['exact','🎯 Resultado exacto'],['sign','✅ Ganador / empate correcto'],['scorer','⚽ Primer goleador'],['minute','🕐 Minuto primer gol exacto']].map(([f,l])=>(
+          {[
+            ['exact',  '🎯 Resultado exacto'],
+            ['sign',   '✅ Ganador / empate correcto'],
+            ['scorer', '⚽ Primer goleador'],
+            ['minute', '🕐 Tramo del primer gol exacto'],
+          ].map(([f,l]) => (
             <div key={f} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,padding:'14px 16px',marginBottom:8,fontSize:14}}>
               <span>{l}</span>
               <input type="number" min="0" max="20" value={pts[f]} onChange={e=>setPts({...pts,[f]:+e.target.value})}
                 style={{width:60,textAlign:'center',background:'var(--bg4)',border:'1px solid var(--border2)',borderRadius:8,padding:8,color:'var(--accent)',fontSize:20,fontFamily:'var(--font-d)'}}/>
             </div>
           ))}
-          <button style={savedPts?{...btnS,color:'var(--green)'}:btnP} onClick={savePoints} >
-            {savedPts?'✓ Guardado':'Guardar puntuación'}
+          <button style={savedPts ? {...btnS, color:'var(--green)'} : btnP} onClick={savePoints}>
+            {savedPts ? '✓ Guardado' : 'Guardar puntuación'}
           </button>
         </Section>
       )}
 
       {/* User management — admin only */}
       {currentUser.is_admin && (
-        <div>
+        <Section last>
           <SH>Gestión de usuarios</SH>
           <div style={{marginBottom:12}}>
-            {users.length===0 && <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>}
-            {users.map(u=>(
+            {users.length === 0 && <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>}
+            {users.map(u => (
               <div key={u.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 14px',marginBottom:6,fontSize:14}}>
                 <div>
                   <span>👤 {u.username}</span>
-                  {u.display_name && u.display_name!==u.username && <span style={{color:'var(--text3)',fontSize:12,marginLeft:8}}>({u.display_name})</span>}
+                  {u.display_name && u.display_name !== u.username && (
+                    <span style={{color:'var(--text3)',fontSize:12,marginLeft:8}}>({u.display_name})</span>
+                  )}
                 </div>
-                <button style={btnD} onClick={()=>deleteUser(u.id,u.username)}>Eliminar</button>
+                <button style={btnD} onClick={()=>deleteUser(u.id, u.username)}>Eliminar</button>
               </div>
             ))}
           </div>
@@ -121,7 +145,7 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
             <button style={btnS} onClick={addUser}>Añadir</button>
           </div>
           {msg && <div style={{fontSize:13,marginTop:8,padding:'7px 10px',borderRadius:6,color:msgOk?'var(--green)':'var(--red)',background:msgOk?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'}}>{msg}</div>}
-        </div>
+        </Section>
       )}
     </div>
   )
