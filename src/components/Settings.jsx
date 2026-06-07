@@ -45,10 +45,13 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const saveDisplayName = useCallback(async () => {
     const name = dnRef.current?.value?.trim()
     if (!name) return
-    await supabase.from('profiles').update({ display_name: name }).eq('id', currentUser.id)
+    const { error } = await supabase.from('profiles').update({ display_name: name }).eq('id', currentUser.id)
+    if (error) {
+      alert('Error al guardar: ' + error.message)
+      return
+    }
     setDnSaved(true)
     setTimeout(() => setDnSaved(false), 1500)
-    // notify parent WITHOUT causing Settings to remount
     onDisplayNameChanged(name)
   }, [currentUser.id, onDisplayNameChanged])
 

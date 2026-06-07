@@ -18,7 +18,13 @@ export default function App() {
   const [allProfiles, setAllProfiles] = useState({}) // id -> display_name
   const [results, setResults] = useState({})
   const [points, setPoints] = useState(DEF_PTS)
+  const [rankingKey, setRankingKey] = useState(0)
   const [loading, setLoading] = useState(false)
+
+  const switchTab = (id) => {
+    setTab(id)
+    if (id === 'ranking') setRankingKey(k => k + 1)
+  }
 
   useEffect(() => { loadConfig() }, [])
   useEffect(() => { if (user) loadGroupData() }, [user, group])
@@ -90,7 +96,7 @@ export default function App() {
       {/* Nav */}
       <div style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',display:'flex',padding:'0 16px',overflowX:'auto'}}>
         {navItems.map(n => (
-          <button key={n.id} onClick={()=>setTab(n.id)}
+          <button key={n.id} onClick={()=>switchTab(n.id)}
             style={{padding:'11px 18px',border:'none',background:'transparent',
               color:tab===n.id?'var(--accent)':'var(--text2)',
               borderBottom:tab===n.id?'2px solid var(--accent)':'2px solid transparent',
@@ -141,7 +147,7 @@ export default function App() {
 
         {tab === 'ko' && <KOSection user={user} points={points}/>}
 
-        {tab === 'ranking' && <Ranking key="ranking" points={points}/>}
+        {tab === 'ranking' && <Ranking key={rankingKey} points={points}/>}
 
         {tab === 'settings' && (
           <Settings
