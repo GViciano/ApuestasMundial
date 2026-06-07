@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script>
+      window.location.replace(
+        '/' + window.location.pathname.split('/')[1] +
+        '/?p=' + encodeURIComponent(window.location.pathname + window.location.search)
+      );
+    </script>
+  </head>
+</html>
