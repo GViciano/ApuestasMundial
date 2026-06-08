@@ -118,7 +118,7 @@ export default function Predictions({ user, points }) {
         {tabBtn('groups', '🏟 Clasificados')}
         {tabBtn('knockouts', '🏆 Semis / Final')}
         {tabBtn('champion', '👑 Campeón')}
-        {tabBtn('ranking', '📊 Ver todas')}
+        {!open && tabBtn('ranking', '📊 Ver todas')}
       </div>
 
       {tab === 'groups' && (
@@ -133,8 +133,15 @@ export default function Predictions({ user, points }) {
         <ChampionPrediction user={user} open={open} myPredictions={myPredictions}
           saving={saving} saved={saved} onSave={savePrediction} points={points} />
       )}
-      {tab === 'ranking' && (
-        <PredictionsRanking allPredictions={allPredictions} profiles={profiles} points={points} />
+      {tab === 'ranking' && !open && (
+        <PredictionsRanking allPredictions={allPredictions} profiles={profiles} points={points} myUserId={user.id} />
+      )}
+      {tab === 'ranking' && open && (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>Las predicciones de los demás se revelan cuando empiece el torneo</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cierra en {tl}</div>
+        </div>
       )}
     </div>
   )
