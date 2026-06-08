@@ -182,7 +182,12 @@ export const MINUTE_RANGES_KO = [
 
 export function fmtDate(iso) {
   const d = new Date(iso)
-  return d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
+  const opts = { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'Europe/Madrid' }
+  const parts = d.toLocaleDateString('es-ES', opts)
+  // Format as: "jue · 26/06/2026 · 21:00"
+  const datePart = d.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric', timeZone:'Europe/Madrid' })
+  const timePart = d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Madrid' })
+  return `${datePart} · ${timePart}`
 }
 export function isOpen(iso) { return new Date() < new Date(new Date(iso).getTime()-60000) }
 export function timeLeft(iso) {

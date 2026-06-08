@@ -57,21 +57,25 @@ export default function Ranking({ points }) {
       })
 
       // Qualifier predictions — position-aware scoring using extra='A_1','A_2' format
-      const userQualPreds = (predictions||[]).filter(p => p.user_id===u.id && p.prediction_type==='group_qualifier')
+      const userQualPreds = (predictions||[]).filter(p =>
+        p.user_id===u.id &&
+        p.prediction_type==='group_qualifier' &&
+        p.extra?.includes('_') // only new format: 'A_1', 'A_2'
+      )
       userQualPreds.forEach(p => {
-        // extra format: 'A_1' or 'A_2'
-        const parts = p.extra?.split('_')
-        const groupId = parts?.[0]
-        const predPos = parseInt(parts?.[1]) - 1 // 0=1st, 1=2nd
-        const real = realQualMap[groupId] || [] // real[0]=1st, real[1]=2nd, real[2]=3rd (optional)
+        const parts = p.extra.split('_')
+        const groupId = parts[0]
+        const predPos = parseInt(parts[1]) - 1 // 0=1st, 1=2nd
+        if (isNaN(predPos)) return
+        const real = realQualMap[groupId] || []
         if (!real.length) return
-        const realPos12 = real.slice(0, 2).indexOf(p.value) // check among 1st/2nd
-        const isThird = real[2] === p.value                  // check if 3rd qualifier
+        const realPos12 = real.slice(0, 2).indexOf(p.value)
+        const isThird = real[2] === p.value
         if (realPos12 >= 0) {
-          if (realPos12 === predPos) { qualPts += points.qualifier; total += points.qualifier } // exact
-          else { qualPts += 1; total += 1 } // qualifies wrong position
+          if (realPos12 === predPos) { qualPts += points.qualifier; total += points.qualifier }
+          else { qualPts += 1; total += 1 }
         } else if (isThird) {
-          qualPts += 1; total += 1 // 3rd qualifier: always 1pt
+          qualPts += 1; total += 1
         }
       })
 

@@ -25,11 +25,15 @@ export default function KOSection({ user, points }) {
   const [loading, setLoading] = useState(true)
   const [activeRound, setActiveRound] = useState('R32')
 
-  // Admin add match form
+  // Admin add match form — separate date/time fields in European format
   const [addRound, setAddRound] = useState('R32')
   const [addHome, setAddHome] = useState('')
   const [addAway, setAddAway] = useState('')
-  const [addDate, setAddDate] = useState('')
+  const [addDay, setAddDay] = useState('')    // DD
+  const [addMonth, setAddMonth] = useState('') // MM
+  const [addYear, setAddYear] = useState('')   // YYYY
+  const [addHour, setAddHour] = useState('')   // HH
+  const [addMin, setAddMin] = useState('00')   // MM
   const [addMsg, setAddMsg] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
 
@@ -67,15 +71,30 @@ export default function KOSection({ user, points }) {
     const round = KO_ROUNDS.find(r => r.id === addRound)
     const existingInRound = koMatches.filter(m => m.round === addRound)
     if (existingInRound.length >= round.slots) return setAddMsg(`Máximo ${round.slots} partido(s) en ${round.label}`)
+
+    // Build ISO date from European fields — treat as Madrid time (UTC+1 in winter, UTC+2 in summer)
+    let matchDate = null
+    if (addDay && addMonth && addYear && addHour) {
+      const d = parseInt(addDay), mo = parseInt(addMonth), y = parseInt(addYear)
+      const h = parseInt(addHour), mi = parseInt(addMin) || 0
+      // Use a date string that JavaScript parses as local time, then convert
+      const localStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00`
+      // Treat as Europe/Madrid — approximate: UTC+2 in June-July (summer), UTC+1 rest of year
+      const isSummer = mo >= 3 && mo <= 10
+      const offsetMs = (isSummer ? 2 : 1) * 3600000
+      matchDate = new Date(new Date(localStr).getTime() - offsetMs).toISOString()
+    }
+
     const id = `${addRound}_${Date.now()}`
     const { error } = await supabase.from('ko_matches').insert({
       id, round: addRound, round_label: round.label,
       home: addHome, away: addAway,
-      match_date: addDate ? new Date(addDate).toISOString() : null,
+      match_date: matchDate,
     })
     if (error) return setAddMsg('Error: ' + error.message)
     setAddMsg('✓ Partido añadido')
-    setAddHome(''); setAddAway(''); setAddDate('')
+    setAddHome(''); setAddAway('')
+    setAddDay(''); setAddMonth(''); setAddYear(''); setAddHour(''); setAddMin('00')
     setShowAddForm(false)
     load()
   }
@@ -134,8 +153,19 @@ export default function KOSection({ user, points }) {
                   </select>
                 </div>
                 <div>
-                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>Fecha y hora</div>
-                  <input type="datetime-local" value={addDate} onChange={e=>setAddDate(e.target.value)} style={inpStyle}/>
+                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>Fecha (DD/MM/AAAA) — hora Madrid</div>
+                  <div style={{display:'grid',gridTemplateColumns:'2fr 2fr 3fr 2fr 2fr',gap:4,alignItems:'center'}}>
+                    <input type="number" min="1" max="31" placeholder="DD" value={addDay} onChange={e=>setAddDay(e.target.value)}
+                      style={{...inpStyle,textAlign:'center',padding:'8px 4px'}}/>
+                    <input type="number" min="1" max="12" placeholder="MM" value={addMonth} onChange={e=>setAddMonth(e.target.value)}
+                      style={{...inpStyle,textAlign:'center',padding:'8px 4px'}}/>
+                    <input type="number" min="2026" max="2027" placeholder="AAAA" value={addYear} onChange={e=>setAddYear(e.target.value)}
+                      style={{...inpStyle,textAlign:'center',padding:'8px 4px'}}/>
+                    <input type="number" min="0" max="23" placeholder="HH" value={addHour} onChange={e=>setAddHour(e.target.value)}
+                      style={{...inpStyle,textAlign:'center',padding:'8px 4px'}}/>
+                    <input type="number" min="0" max="59" placeholder="MM" value={addMin} onChange={e=>setAddMin(e.target.value)}
+                      style={{...inpStyle,textAlign:'center',padding:'8px 4px'}}/>
+                  </div>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
