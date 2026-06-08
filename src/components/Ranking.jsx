@@ -16,16 +16,32 @@ export default function Ranking({ points }) {
       ...allGroupMatches,
       ...(koMatches || []).map(m => ({ id: m.id, phase: 'ko' })),
     ]
-    const [{ data: profiles }, { data: bets }, { data: results }] = await Promise.all([
+    const [{ data: profiles }, { data: bets }, { data: results }, { data: predictions }, { data: realQuals }, { data: predResults }] = await Promise.all([
       supabase.from('profiles').select('*').eq('is_admin', false),
       supabase.from('bets').select('*'),
       supabase.from('results').select('*'),
+      supabase.from('predictions').select('*'),
+      supabase.from('group_qualifiers').select('*'),
+      supabase.from('prediction_results').select('*'),
     ])
     const resultsMap = {}
     results?.forEach(r => { resultsMap[r.match_id] = r })
 
+    // Real qualifiers map: { 'A': ['España','Uruguay'], ... }
+    const realQualMap = {}
+    realQuals?.forEach(q => {
+      if (!realQualMap[q.group_id]) realQualMap[q.group_id] = []
+      realQualMap[q.group_id].push(q.team)
+    })
+
+    // Real knockout prediction results map
+    const predResMap = {}
+    predResults?.forEach(r => { predResMap[r.prediction_type] = r.teams })
+
     const scores = (profiles || []).map(u => {
-      let total=0, exactPts=0, signPts=0, scorerPts=0, minutePts=0, placed=0
+      let total=0, exactPts=0, signPts=0, scorerPts=0, minutePts=0, qualPts=0, koPredPts=0, placed=0
+
+      // Match bets
       const userBets = (bets||[]).filter(b => b.user_id===u.id)
       allMatches.forEach(m => {
         const bet = userBets.find(b => b.match_id===m.id)
@@ -36,10 +52,47 @@ export default function Ranking({ points }) {
         exactPts+=bd.exact; signPts+=bd.sign; scorerPts+=bd.scorer; minutePts+=bd.minute
         total+=bd.exact+bd.sign+bd.scorer+bd.minute
       })
+
+      // Qualifier predictions — position-aware scoring
+      const userPreds = (predictions||[]).filter(p => p.user_id===u.id && p.prediction_type==='group_qualifier')
+      // Group user preds by group: { 'A': [{extra:'A',value:'España'}, ...] }
+      const predsByGroup = {}
+      userPreds.forEach(p => {
+        if (!predsByGroup[p.extra]) predsByGroup[p.extra] = []
+        predsByGroup[p.extra].push(p)
+      })
+      Object.entries(predsByGroup).forEach(([groupId, preds]) => {
+        const real = realQualMap[groupId] || [] // real[0]=1st, real[1]=2nd
+        if (!real.length) return
+        // preds are in insertion order — first inserted = 1st pick, second = 2nd pick
+        preds.sort((a,b) => new Date(a.created_at)-new Date(b.created_at))
+        preds.forEach((p, i) => {
+          const realPos = real.indexOf(p.value)
+          if (realPos < 0) return // not qualified
+          if (realPos === i) { qualPts += points.qualifier; total += points.qualifier } // exact position
+          else { qualPts += 1; total += 1 } // wrong position but qualifies
+        })
+      })
+
+      // Knockout/champion predictions
+      const koPredTypes = [
+        { type: 'semifinal', pts: points.semifinal },
+        { type: 'finalist',  pts: points.finalist },
+        { type: 'champion',  pts: points.champion },
+      ]
+      koPredTypes.forEach(({ type, pts: typePts }) => {
+        const real = predResMap[type] || []
+        if (!real.length) return
+        const userTypePreds = (predictions||[]).filter(p => p.user_id===u.id && p.prediction_type===type)
+        userTypePreds.forEach(p => {
+          if (real.includes(p.value)) { koPredPts += typePts; total += typePts }
+        })
+      })
+
       const displayName = (u.display_name && u.display_name !== u.username)
         ? u.display_name
         : u.username.includes('@') ? '(sin nombre)' : u.username
-      return { username: u.username, displayName, total, exactPts, signPts, scorerPts, minutePts, placed }
+      return { username:u.username, displayName, total, exactPts, signPts, scorerPts, minutePts, qualPts, koPredPts, placed }
     }).sort((a,b) => b.total-a.total)
 
     setScores(scores)
@@ -70,6 +123,8 @@ export default function Ranking({ points }) {
                   <span>✅ {s.signPts} ganador</span>
                   <span>⚽ {s.scorerPts} goleador</span>
                   <span>🕐 {s.minutePts} minuto</span>
+                  {s.qualPts > 0 && <span>🏟 {s.qualPts} clasif.</span>}
+                  {s.koPredPts > 0 && <span>🏆 {s.koPredPts} pred.</span>}
                   <span style={{color:'var(--text3)'}}>{s.placed} apuestas</span>
                 </div>
               </div>

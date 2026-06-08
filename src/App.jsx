@@ -87,17 +87,16 @@ export default function App() {
   }
 
   const handleLogin = (u) => {
-    setUser(u)
-    setDisplayName(u.display_name || u.username)
-    // Show modal only if display_name is null (never set)
-    // If username looks like a real name (no @), use it as display_name automatically
-    const needsName = !u.display_name || u.display_name.trim() === ''
-    if (needsName && !u.is_admin) {
-      // If username doesn't look like an email, auto-set display_name to username
-      if (!u.username.includes('@')) {
-        supabase.from('profiles').update({ display_name: u.username }).eq('id', u.id)
-        setUser({ ...u, display_name: u.username })
-        setDisplayName(u.username)
+    const normalized = { ...u, is_admin: u.is_admin === true || u.is_admin === 'true' }
+    setUser(normalized)
+    setDisplayName(normalized.display_name || normalized.username)
+    const needsName = !normalized.display_name || normalized.display_name.trim() === ''
+    if (needsName && !normalized.is_admin) {
+      if (!normalized.username.includes('@')) {
+        // Non-email username — auto-set display_name silently
+        supabase.from('profiles').update({ display_name: normalized.username }).eq('id', normalized.id)
+        setUser({ ...normalized, display_name: normalized.username })
+        setDisplayName(normalized.username)
       } else {
         setShowNameModal(true)
       }

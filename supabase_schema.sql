@@ -92,3 +92,43 @@ alter table predictions disable row level security;
 --   unique(user_id, prediction_type, extra, value)
 -- );
 -- ALTER TABLE predictions DISABLE ROW LEVEL SECURITY;
+
+-- Clasificados reales por grupo (los introduce el admin)
+create table group_qualifiers (
+  id uuid primary key default gen_random_uuid(),
+  group_id text not null,   -- 'A', 'B', etc.
+  team text not null,
+  position int not null,    -- 1 o 2
+  created_at timestamptz default now(),
+  unique(group_id, team),
+  unique(group_id, position)
+);
+alter table group_qualifiers disable row level security;
+
+-- MIGRACION:
+-- CREATE TABLE group_qualifiers (
+--   id uuid primary key default gen_random_uuid(),
+--   group_id text not null, team text not null, position int not null,
+--   created_at timestamptz default now(),
+--   unique(group_id, team), unique(group_id, position)
+-- );
+-- ALTER TABLE group_qualifiers DISABLE ROW LEVEL SECURITY;
+
+-- Resultados reales de predicciones (semifinales, finalistas, campeón)
+-- type: 'semifinal', 'finalist', 'champion'
+create table prediction_results (
+  id uuid primary key default gen_random_uuid(),
+  prediction_type text unique not null,
+  teams jsonb not null,  -- array of team names
+  updated_at timestamptz default now()
+);
+alter table prediction_results disable row level security;
+
+-- MIGRACION:
+-- CREATE TABLE prediction_results (
+--   id uuid primary key default gen_random_uuid(),
+--   prediction_type text unique not null,
+--   teams jsonb not null,
+--   updated_at timestamptz default now()
+-- );
+-- ALTER TABLE prediction_results DISABLE ROW LEVEL SECURITY;
