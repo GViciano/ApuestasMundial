@@ -34,6 +34,8 @@ export default function Predictions({ user, points }) {
   const [saving, setSaving] = useState({})
   const [saved, setSaved] = useState({})
   const [tab, setTab] = useState('groups')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const open = isPredictionOpen()
   const tl = timeLeftStr()
 
@@ -43,33 +45,50 @@ export default function Predictions({ user, points }) {
   const [realPredResults, setRealPredResults] = useState({}) // { semifinal:[...], finalist:[...], champion:[...] }
 
   const load = async () => {
-    const [myRes, allRes, profRes, qualRes, predResRes] = await Promise.all([
-      supabase.from('predictions').select('*').eq('user_id', user.id),
-      supabase.from('predictions').select('*'),
-      supabase.from('profiles').select('id, username, display_name').eq('is_admin', false),
-      supabase.from('group_qualifiers').select('*'),
-      supabase.from('prediction_results').select('*').throwOnError(false),
-    ])
-    const map = {}
-    myRes.data?.forEach(p => {
-      const key = p.prediction_type === 'group_qualifier' ? `qualifier_${p.extra}` : p.prediction_type
-      if (!map[key]) map[key] = []
-      map[key].push(p.value)
-    })
-    setMyPredictions(map)
-    setAllPredictions(allRes.data || [])
-    const pm = {}
-    profRes.data?.forEach(p => { pm[p.id] = p.display_name || p.username })
-    setProfiles(pm)
-    const qm = {}
-    qualRes.data?.forEach(q => {
-      if (!qm[q.group_id]) qm[q.group_id] = []
-      qm[q.group_id].push(q.team)
-    })
-    setRealQualifiers(qm)
-    const rm = {}
-    predResRes.data?.forEach(r => { rm[r.prediction_type] = r.teams })
-    setRealPredResults(rm)
+    setLoading(true)
+    setLoadError('')
+    try {
+      const [myRes, allRes, profRes, qualRes, predResRes] = await Promise.all([
+        supabase.from('predictions').select('*').eq('user_id', user.id),
+        supabase.from('predictions').select('*'),
+        supabase.from('profiles').select('id, username, display_name').eq('is_admin', false),
+        supabase.from('group_qualifiers').select('*'),
+        supabase.from('prediction_results').select('*'),
+      ])
+
+      // Check for errors
+      const errors = [myRes, allRes, profRes, qualRes, predResRes].map(r => r.error?.message).filter(Boolean)
+      if (errors.length) throw new Error(errors[0])
+
+      const map = {}
+      myRes.data?.forEach(p => {
+        const key = p.prediction_type === 'group_qualifier' ? `qualifier_${p.extra}` : p.prediction_type
+        if (!map[key]) map[key] = []
+        map[key].push(p.value)
+      })
+      setMyPredictions(map)
+      setAllPredictions(allRes.data || [])
+
+      const pm = {}
+      profRes.data?.forEach(p => { pm[p.id] = p.display_name || p.username })
+      setProfiles(pm)
+
+      const qm = {}
+      qualRes.data?.forEach(q => {
+        if (!qm[q.group_id]) qm[q.group_id] = []
+        qm[q.group_id].push(q.team)
+      })
+      setRealQualifiers(qm)
+
+      const rm = {}
+      predResRes.data?.forEach(r => { rm[r.prediction_type] = r.teams })
+      setRealPredResults(rm)
+    } catch(err) {
+      console.error('Predictions load error:', err)
+      setLoadError(err.message || 'Error al cargar predicciones')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const savePrediction = async (type, extra, values) => {
@@ -118,6 +137,19 @@ export default function Predictions({ user, points }) {
 
   return (
     <div>
+      {loading && (
+        <div style={{color:'var(--text3)',textAlign:'center',padding:40}}>Cargando predicciones…</div>
+      )}
+      {!loading && loadError && (
+        <div style={{color:'var(--red)',padding:'16px',background:'rgba(239,68,68,.1)',borderRadius:8,marginBottom:16}}>
+          ⚠️ {loadError}
+          <button onClick={load} style={{marginLeft:12,color:'var(--accent)',background:'none',border:'none',cursor:'pointer',fontSize:13,textDecoration:'underline'}}>
+            Reintentar
+          </button>
+        </div>
+      )}
+      {!loading && !loadError && (
+      <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <h2 style={{ fontFamily: 'var(--font-d)', fontSize: 28, letterSpacing: 1 }}>PREDICCIONES</h2>
         {open && tl && (
@@ -140,17 +172,17 @@ export default function Predictions({ user, points }) {
       </div>
 
       {tab === 'groups' && (
-        <GroupQualifiers user={user} open={open} myPredictions={myPredictions}
+        <GroupQualifiers isAdmin={isAdmin} open={open} myPredictions={myPredictions}
           saving={saving} saved={saved} onSave={savePrediction} points={points}
           realQualifiers={realQualifiers} onReload={load} />
       )}
       {tab === 'knockouts' && (
-        <KnockoutPredictions user={user} open={open} myPredictions={myPredictions}
+        <KnockoutPredictions isAdmin={isAdmin} open={open} myPredictions={myPredictions}
           saving={saving} saved={saved} onSave={savePrediction} points={points}
           realResults={realPredResults} onReload={load} />
       )}
       {tab === 'champion' && (
-        <ChampionPrediction user={user} open={open} myPredictions={myPredictions}
+        <ChampionPrediction isAdmin={isAdmin} user={user} open={open} myPredictions={myPredictions}
           saving={saving} saved={saved} onSave={savePrediction} points={points}
           realResults={realPredResults} onReload={load} />
       )}
@@ -164,12 +196,14 @@ export default function Predictions({ user, points }) {
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cierra en {tl}</div>
         </div>
       )}
+      </div>
+      )}
     </div>
   )
 }
 
 // ── Group Qualifiers ──────────────────────────────────────────────────────────
-function GroupQualifiers({ user, open, myPredictions, saving, saved, onSave, points, realQualifiers, onReload }) {
+function GroupQualifiers({ isAdmin, open, myPredictions, saving, saved, onSave, points, realQualifiers, onReload }) {
   return (
     <div>
       <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', marginBottom:16, fontSize:13 }}>
@@ -405,7 +439,7 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
 }
 
 // ── Knockout Predictions ──────────────────────────────────────────────────────
-function KnockoutPredictions({ user, open, myPredictions, saving, saved, onSave, points, realResults, onReload }) {
+function KnockoutPredictions({ isAdmin, open, myPredictions, saving, saved, onSave, points, realResults, onReload }) {
   const stages = [
     { key: 'semifinal', label: 'Semifinalistas', desc: 'Elige los 4 equipos que llegan a semifinales', count: 4, pts: points.semifinal },
     { key: 'finalist',  label: 'Finalistas',     desc: 'Elige los 2 equipos que llegan a la final',   count: 2, pts: points.finalist },
@@ -559,7 +593,7 @@ function MultiTeamCard({ stageKey, label, desc, count, pts, current, open, savin
 }
 
 // ── Champion ──────────────────────────────────────────────────────────────────
-function ChampionPrediction({ user, open, myPredictions, saving, saved, onSave, points, realResults, onReload }) {
+function ChampionPrediction({ isAdmin, user, open, myPredictions, saving, saved, onSave, points, realResults, onReload }) {
   const current = myPredictions['champion']?.[0] || ''
   const realChampion = realResults['champion']?.[0] || ''
   const [selected, setSelected] = useState(current)
