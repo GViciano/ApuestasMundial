@@ -7,6 +7,7 @@ import Ranking from './components/Ranking.jsx'
 import Settings from './components/Settings.jsx'
 import Flag from './components/Flag.jsx'
 import KOSection from './components/KOSection.jsx'
+import NameModal from './components/NameModal.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -19,7 +20,7 @@ export default function App() {
   const [results, setResults] = useState({})
   const [points, setPoints] = useState(DEF_PTS)
   const [rankingKey, setRankingKey] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [showNameModal, setShowNameModal] = useState(false)
 
   const switchTab = (id) => {
     setTab(id)
@@ -63,6 +64,15 @@ export default function App() {
   const handleLogin = (u) => {
     setUser(u)
     setDisplayName(u.display_name || u.username)
+    // Show name modal if display_name is not set or equals username (email)
+    const needsName = !u.display_name || u.display_name === u.username
+    if (needsName && !u.is_admin) setShowNameModal(true)
+  }
+
+  const handleNameSaved = (name) => {
+    setDisplayName(name)
+    setUser(prev => ({ ...prev, display_name: name }))
+    setShowNameModal(false)
   }
 
   const handleDisplayNameChanged = useCallback((name) => {
@@ -81,14 +91,19 @@ export default function App() {
 
   return (
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+      {showNameModal && (
+        <NameModal
+          user={user}
+          onSaved={handleNameSaved}
+          onSkip={() => setShowNameModal(false)}
+        />
+      )}
       {/* Header */}
       <div style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100}}>
         <div style={{fontFamily:'var(--font-d)',fontSize:22,letterSpacing:2,color:'var(--accent)'}}>⚽ MUNDIAL 2026</div>
         <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
           {user.is_admin && <span style={{fontSize:11,background:'rgba(245,166,35,.2)',color:'var(--accent)',padding:'2px 7px',borderRadius:4,fontWeight:500}}>ADMIN</span>}
-          <span style={{fontSize:13,color:'var(--text2)'}}>
-            👤 {displayName && displayName !== user.username ? displayName : user.username.includes('@') ? '(sin nombre)' : displayName}
-          </span>
+          <span style={{fontSize:13,color:'var(--text2)'}}>👤 {displayName}</span>
           <button onClick={()=>{ setUser(null); setDisplayName('') }}
             style={{background:'transparent',color:'var(--text2)',border:'1px solid var(--border)',borderRadius:7,padding:'5px 12px',fontSize:13,cursor:'pointer',fontFamily:'var(--font-b)'}}>
             Salir
@@ -158,6 +173,7 @@ export default function App() {
             currentUser={user}
             onPointsSaved={p => setPoints(p)}
             onDisplayNameChanged={handleDisplayNameChanged}
+            onOpenNameModal={() => setShowNameModal(true)}
           />
         )}
       </div>

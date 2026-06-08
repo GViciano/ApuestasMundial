@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
 
 const inp = {background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:8,padding:'9px 12px',color:'var(--text)',fontSize:14,width:'100%',fontFamily:'var(--font-b)'}
@@ -6,7 +6,7 @@ const btnP = {background:'var(--accent)',color:'#0a0f1e',fontWeight:500,fontSize
 const btnS = {background:'var(--bg4)',color:'var(--text)',fontSize:14,padding:'9px 18px',borderRadius:8,cursor:'pointer',border:'1px solid var(--border2)'}
 const btnD = {background:'var(--red)',color:'#fff',fontSize:13,padding:'5px 12px',borderRadius:8,cursor:'pointer',border:'none'}
 
-export default function Settings({ points, currentUser, onPointsSaved, onDisplayNameChanged }) {
+export default function Settings({ points, currentUser, onPointsSaved, onDisplayNameChanged, onOpenNameModal }) {
   const [pts, setPts] = useState(points)
   const [savedPts, setSavedPts] = useState(false)
   const [users, setUsers] = useState([])
@@ -14,24 +14,20 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const [newP, setNewP] = useState('')
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(true)
-  const [dnStatus, setDnStatus] = useState('') // '', 'saving', 'ok', 'error'
-  const [dnMsg, setDnMsg] = useState('')
+  const [currentDN, setCurrentDN] = useState('Cargando…')
 
-  // Uncontrolled input — never touched by React after mount
-  const dnRef = useRef(null)
-
-  // On mount: fetch the REAL current display_name from Supabase (ignore stale prop)
   useEffect(() => {
-    supabase.from('profiles').select('display_name, username').eq('id', currentUser.id).single()
+    // Always fetch fresh from DB
+    supabase.from('profiles').select('display_name,username').eq('id', currentUser.id).single()
       .then(({ data }) => {
-        if (dnRef.current && data) {
+        if (data) {
           const name = (data.display_name && data.display_name !== data.username)
-            ? data.display_name : ''
-          dnRef.current.value = name
+            ? data.display_name : null
+          setCurrentDN(name || '(sin nombre)')
         }
       })
     if (currentUser.is_admin) loadUsers()
-  }, [])  // empty deps: run once on mount, never re-run
+  }, [])
 
   const loadUsers = async () => {
     const { data } = await supabase.from('profiles').select('*').eq('is_admin', false).order('username')
@@ -43,26 +39,6 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
     setSavedPts(true)
     setTimeout(() => setSavedPts(false), 1500)
     onPointsSaved(pts)
-  }
-
-  const saveDisplayName = async () => {
-    const name = dnRef.current?.value?.trim()
-    if (!name) { setDnMsg('Escribe un nombre'); setDnStatus('error'); return }
-    setDnStatus('saving')
-    const { error } = await supabase.from('profiles')
-      .update({ display_name: name })
-      .eq('id', currentUser.id)
-    if (error) {
-      setDnMsg('Error: ' + error.message)
-      setDnStatus('error')
-      return
-    }
-    // Update the input to show what was saved (don't reset it)
-    if (dnRef.current) dnRef.current.value = name
-    setDnStatus('ok')
-    setDnMsg('')
-    setTimeout(() => setDnStatus(''), 2000)
-    onDisplayNameChanged(name)
   }
 
   const addUser = async () => {
@@ -87,21 +63,11 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
   const showMsg = (txt, ok) => { setMsg(txt); setMsgOk(ok) }
 
   const SH = ({children}) => (
-    <h3 style={{fontSize:13,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:12}}>
-      {children}
-    </h3>
+    <h3 style={{fontSize:13,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:12}}>{children}</h3>
   )
   const Section = ({children, last}) => (
-    <div style={{marginBottom:last?0:28,paddingBottom:last?0:28,borderBottom:last?'none':'1px solid var(--border)'}}>
-      {children}
-    </div>
+    <div style={{marginBottom:last?0:28,paddingBottom:last?0:28,borderBottom:last?'none':'1px solid var(--border)'}}>{children}</div>
   )
-
-  const dnBtnStyle = dnStatus === 'ok'
-    ? {...btnS, color:'var(--green)'}
-    : dnStatus === 'saving'
-    ? {...btnS, opacity:.6}
-    : btnP
 
   return (
     <div>
@@ -110,25 +76,16 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
       {/* Display name */}
       <Section>
         <SH>Tu nombre visible</SH>
-        <p style={{fontSize:13,color:'var(--text3)',marginBottom:12}}>
-          Este nombre aparece en el ranking. Escríbelo y pulsa Guardar.
-        </p>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <input
-            ref={dnRef}
-            placeholder="Escribe tu nombre aquí"
-            style={{...inp, flex:1}}
-            onKeyDown={e => e.key === 'Enter' && saveDisplayName()}
-          />
-          <button style={dnBtnStyle} onClick={saveDisplayName} disabled={dnStatus==='saving'}>
-            {dnStatus === 'ok' ? '✓ Guardado' : dnStatus === 'saving' ? 'Guardando…' : 'Guardar'}
-          </button>
-        </div>
-        {dnMsg && (
-          <div style={{fontSize:12,marginTop:6,color:dnStatus==='error'?'var(--red)':'var(--green)'}}>
-            {dnMsg}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+          background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 16px'}}>
+          <div>
+            <div style={{fontSize:13,color:'var(--text3)',marginBottom:2}}>Nombre actual</div>
+            <div style={{fontSize:15,fontWeight:500,color: currentDN==='(sin nombre)'?'var(--text3)':'var(--text)'}}>
+              {currentDN}
+            </div>
           </div>
-        )}
+          <button style={btnP} onClick={onOpenNameModal}>Cambiar</button>
+        </div>
       </Section>
 
       {/* Points — admin only */}
@@ -149,13 +106,13 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
               padding:'14px 16px',marginBottom:8,fontSize:14}}>
               <span>{l}</span>
               <input type="number" min="0" max="20" value={pts[f]}
-                onChange={e => setPts({...pts, [f]: +e.target.value})}
+                onChange={e => setPts({...pts,[f]:+e.target.value})}
                 style={{width:60,textAlign:'center',background:'var(--bg4)',border:'1px solid var(--border2)',
                   borderRadius:8,padding:8,color:'var(--accent)',fontSize:20,fontFamily:'var(--font-d)'}}/>
             </div>
           ))}
-          <button style={savedPts ? {...btnS, color:'var(--green)'} : btnP} onClick={savePoints}>
-            {savedPts ? '✓ Guardado' : 'Guardar puntuación'}
+          <button style={savedPts?{...btnS,color:'var(--green)'}:btnP} onClick={savePoints}>
+            {savedPts?'✓ Guardado':'Guardar puntuación'}
           </button>
         </Section>
       )}
@@ -165,36 +122,29 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
         <Section last>
           <SH>Gestión de usuarios</SH>
           <div style={{marginBottom:12}}>
-            {users.length === 0 && (
-              <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>
-            )}
+            {users.length===0 && <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>}
             {users.map(u => (
               <div key={u.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
                 background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,
                 padding:'10px 14px',marginBottom:6,fontSize:14}}>
                 <div>
                   <span>👤 {u.username}</span>
-                  {u.display_name && u.display_name !== u.username && (
+                  {u.display_name && u.display_name!==u.username && (
                     <span style={{color:'var(--text3)',fontSize:12,marginLeft:8}}>({u.display_name})</span>
                   )}
                 </div>
-                <button style={btnD} onClick={() => deleteUser(u.id, u.username)}>Eliminar</button>
+                <button style={btnD} onClick={()=>deleteUser(u.id,u.username)}>Eliminar</button>
               </div>
             ))}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:8,alignItems:'center'}}>
-            <input style={inp} placeholder="Nuevo usuario" value={newU}
-              onChange={e => setNewU(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addUser()}/>
-            <input style={inp} type="password" placeholder="Contraseña" value={newP}
-              onChange={e => setNewP(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addUser()}/>
+            <input style={inp} placeholder="Nuevo usuario" value={newU} onChange={e=>setNewU(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addUser()}/>
+            <input style={inp} type="password" placeholder="Contraseña" value={newP} onChange={e=>setNewP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addUser()}/>
             <button style={btnS} onClick={addUser}>Añadir</button>
           </div>
           {msg && (
             <div style={{fontSize:13,marginTop:8,padding:'7px 10px',borderRadius:6,
-              color:msgOk?'var(--green)':'var(--red)',
-              background:msgOk?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'}}>
+              color:msgOk?'var(--green)':'var(--red)',background:msgOk?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'}}>
               {msg}
             </div>
           )}
