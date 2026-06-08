@@ -85,10 +85,9 @@ export default function Predictions({ user, points }) {
 
       const qm = {}
       qualRes.data?.forEach(q => {
-        if (!qm[q.group_id]) qm[q.group_id] = [null, null]
+        if (!qm[q.group_id]) qm[q.group_id] = [null, null, null]
         qm[q.group_id][q.position - 1] = q.team
       })
-      // Clean nulls
       Object.keys(qm).forEach(g => { qm[g] = qm[g].filter(Boolean) })
       setRealQualifiers(qm)
 
@@ -232,18 +231,10 @@ function GroupQualifiers({ isAdmin, open, myPredictions, saving, saved, onSave, 
       <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', marginBottom:16, fontSize:13 }}>
         <div style={{ fontWeight:500, marginBottom:6 }}>Sistema de puntuación — Clasificados de grupo</div>
         <div style={{ display:'flex', flexDirection:'column', gap:4, color:'var(--text3)' }}>
-          <div>
-            <strong style={{ color:'var(--green)' }}>{points.qualifier} pts</strong>
-            {' '}→ Aciertas el equipo <em>y</em> la posición (1.º o 2.º exacto)
-          </div>
-          <div>
-            <strong style={{ color:'var(--accent)' }}>1 pt</strong>
-            {' '}→ Aciertas el equipo pero se clasificó en la otra posición
-          </div>
-          <div>
-            <strong style={{ color:'var(--red)' }}>0 pts</strong>
-            {' '}→ El equipo no se clasifica
-          </div>
+          <div><strong style={{ color:'var(--green)' }}>{points.qualifier} pts</strong>{' '}→ Aciertas el equipo <em>y</em> la posición (1.º o 2.º exacto)</div>
+          <div><strong style={{ color:'var(--accent)' }}>1 pt</strong>{' '}→ El equipo pasa como 1.º o 2.º pero en la posición contraria</div>
+          <div><strong style={{ color:'var(--accent)' }}>1 pt</strong>{' '}→ El equipo pasa como mejor tercero (aunque lo pusieras 1.º o 2.º)</div>
+          <div><strong style={{ color:'var(--red)' }}>0 pts</strong>{' '}→ El equipo no se clasifica</div>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -269,26 +260,40 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
   const [sel2, setSel2] = useState(current[1] || '')
   const [adminSel1, setAdminSel1] = useState(real[0] || '')
   const [adminSel2, setAdminSel2] = useState(real[1] || '')
+  const [adminSel3, setAdminSel3] = useState(real[2] || '') // optional 3rd qualifier
   const [adminSaving, setAdminSaving] = useState(false)
   const [adminSaved, setAdminSaved] = useState(false)
 
   useEffect(() => { setSel1(current[0] || ''); setSel2(current[1] || '') }, [current[0], current[1]])
-  useEffect(() => { setAdminSel1(real[0] || ''); setAdminSel2(real[1] || '') }, [real[0], real[1]])
+  useEffect(() => {
+    setAdminSel1(real[0] || '')
+    setAdminSel2(real[1] || '')
+    setAdminSel3(real[2] || '')
+  }, [real[0], real[1], real[2]])
 
   const isSaved = current.length >= 2 && current[0] && current[1]
   const hasReal = real.length >= 2
+  const hasThird = !!real[2]
 
-  // Position-aware scoring: full pts if position matches, 1pt if team qualifies but wrong position
+  // Position-aware scoring:
+  // - Predicted team is 1st or 2nd qualifier AND position matches → full pts
+  // - Predicted team is 1st or 2nd qualifier but wrong position → 1pt
+  // - Predicted team is 3rd qualifier (mejor tercero) → 1pt regardless
+  // - Team doesn't qualify → 0pts
   const calcEarned = () => {
     if (!hasReal || !isSaved) return null
     let pts = 0
-    // current[0] = predicted 1st, current[1] = predicted 2nd
-    // real[0] = actual 1st, real[1] = actual 2nd
     ;[0, 1].forEach(i => {
       const predicted = current[i]
       if (!predicted) return
-      if (real[i] === predicted) pts += points.qualifier      // exact position
-      else if (real.includes(predicted)) pts += 1             // qualifies but wrong position
+      const realPos12 = real.slice(0, 2).indexOf(predicted) // check among 1st/2nd
+      const isThird = real[2] === predicted                  // check if 3rd qualifier
+      if (realPos12 >= 0) {
+        if (realPos12 === i) pts += points.qualifier  // exact position
+        else pts += 1                                  // qualifies but wrong position
+      } else if (isThird) {
+        pts += 1                                       // 3rd qualifier: always 1pt
+      }
     })
     return pts
   }
@@ -297,12 +302,15 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
   const saveReal = async () => {
     if (!adminSel1 || !adminSel2 || adminSel1 === adminSel2) return
     setAdminSaving(true)
-    // Delete existing and reinsert
     await supabase.from('group_qualifiers').delete().eq('group_id', group)
-    await supabase.from('group_qualifiers').insert([
+    const rows = [
       { group_id: group, team: adminSel1, position: 1 },
       { group_id: group, team: adminSel2, position: 2 },
-    ])
+    ]
+    if (adminSel3 && adminSel3 !== adminSel1 && adminSel3 !== adminSel2) {
+      rows.push({ group_id: group, team: adminSel3, position: 3 })
+    }
+    await supabase.from('group_qualifiers').insert(rows)
     setAdminSaving(false)
     setAdminSaved(true)
     setTimeout(() => setAdminSaved(false), 1500)
@@ -312,7 +320,7 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
   const deleteReal = async () => {
     if (!confirm(`¿Borrar los clasificados del Grupo ${group}?`)) return
     await supabase.from('group_qualifiers').delete().eq('group_id', group)
-    setAdminSel1(''); setAdminSel2('')
+    setAdminSel1(''); setAdminSel2(''); setAdminSel3('')
     onReload()
   }
 
@@ -344,12 +352,13 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
       {/* Teams reference */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         {teams.map(t => {
-          const realPos = real.indexOf(t) // -1, 0, or 1
+          const realPos12 = real.slice(0, 2).indexOf(t) // position among 1st/2nd
+          const isThird = real[2] === t
+          const qualifies = realPos12 >= 0 || isThird
           const predPos = current.indexOf(t)
-          const qualifies = realPos >= 0
           const predicted = predPos >= 0
-          const exactHit = qualifies && predicted && realPos === predPos
-          const partialHit = qualifies && predicted && realPos !== predPos
+          const exactHit = realPos12 >= 0 && predicted && realPos12 === predPos
+          const partialHit = (realPos12 >= 0 && predicted && realPos12 !== predPos) || (isThird && predicted)
           return (
             <span key={t} style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4,
               color: exactHit ? 'var(--green)' : partialHit ? 'var(--accent)' : qualifies ? 'var(--text)' : predicted ? 'var(--red)' : 'var(--text3)',
@@ -358,7 +367,8 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
               {t}
               {exactHit && ' ✓'}
               {partialHit && ' ~'}
-              {qualifies && !predicted && ' ★'}
+              {isThird && !predicted && ' 3★'}
+              {realPos12 >= 0 && !predicted && ' ★'}
               {hasReal && predicted && !qualifies && ' ✗'}
             </span>
           )
@@ -373,18 +383,28 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
             {[
-              [adminSel1, setAdminSel1, adminSel2, '1.º clasificado'],
-              [adminSel2, setAdminSel2, adminSel1, '2.º clasificado'],
-            ].map(([val, setVal, other, label]) => (
+              [adminSel1, setAdminSel1, [adminSel2, adminSel3], '1.º clasificado'],
+              [adminSel2, setAdminSel2, [adminSel1, adminSel3], '2.º clasificado'],
+            ].map(([val, setVal, others, label]) => (
               <div key={label}>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{label}</div>
                 <select value={val} onChange={e => setVal(e.target.value)}
                   style={{ background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 8px', color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'var(--font-b)' }}>
                   <option value="">— Selecciona —</option>
-                  {teams.map(t => <option key={t} value={t} disabled={t === other}>{t}</option>)}
+                  {teams.map(t => <option key={t} value={t} disabled={others.includes(t)}>{t}</option>)}
                 </select>
               </div>
             ))}
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>
+              3.º mejor tercero <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>(opcional — si pasa)</span>
+            </div>
+            <select value={adminSel3} onChange={e => setAdminSel3(e.target.value)}
+              style={{ background: 'var(--bg4)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 8px', color: 'var(--text)', fontSize: 13, width: '100%', fontFamily: 'var(--font-b)' }}>
+              <option value="">— No pasa ningún tercero —</option>
+              {teams.map(t => <option key={t} value={t} disabled={t === adminSel1 || t === adminSel2}>{t}</option>)}
+            </select>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={saveReal} disabled={adminSaving || !adminSel1 || !adminSel2 || adminSel1 === adminSel2}
@@ -436,17 +456,18 @@ function GroupQualifierCard({ group, teams, current, open, saving, saved, onSave
           {isSaved ? (
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {current.map((t, i) => {
-                const realPos = real.indexOf(t)
-                const exactHit = realPos === i
-                const partialHit = realPos >= 0 && realPos !== i
-                const missed = hasReal && realPos < 0
+                const realPos12 = real.slice(0, 2).indexOf(t)
+                const isThird = real[2] === t
+                const exactHit = realPos12 === i
+                const partialHit = (realPos12 >= 0 && !exactHit) || isThird
+                const missed = hasReal && realPos12 < 0 && !isThird
                 return (
                   <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5,
                     color: exactHit ? 'var(--green)' : partialHit ? 'var(--accent)' : missed ? 'var(--red)' : 'var(--text2)' }}>
                     <Flag team={t} size={14} />
                     {i === 0 ? '1.º' : '2.º'} {t}
                     {exactHit && <span> ✓ +{points.qualifier}pts</span>}
-                    {partialHit && <span> ~ +1pt</span>}
+                    {partialHit && <span> ~ +1pt{isThird ? ' (3.º)' : ''}</span>}
                     {missed && ' ✗'}
                   </span>
                 )

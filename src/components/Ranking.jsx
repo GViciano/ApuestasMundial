@@ -27,13 +27,12 @@ export default function Ranking({ points }) {
     const resultsMap = {}
     results?.forEach(r => { resultsMap[r.match_id] = r })
 
-    // Real qualifiers map: { 'A': ['1stTeam', '2ndTeam'] } — sorted by position
+    // Real qualifiers map: { 'A': ['1st', '2nd', '3rd?'] } — sorted by position
     const realQualMap = {}
     realQuals?.forEach(q => {
-      if (!realQualMap[q.group_id]) realQualMap[q.group_id] = [null, null]
-      realQualMap[q.group_id][q.position - 1] = q.team // position 1 → index 0, position 2 → index 1
+      if (!realQualMap[q.group_id]) realQualMap[q.group_id] = [null, null, null]
+      realQualMap[q.group_id][q.position - 1] = q.team
     })
-    // Remove nulls for groups with only 1 qualifier set
     Object.keys(realQualMap).forEach(g => {
       realQualMap[g] = realQualMap[g].filter(Boolean)
     })
@@ -64,12 +63,16 @@ export default function Ranking({ points }) {
         const parts = p.extra?.split('_')
         const groupId = parts?.[0]
         const predPos = parseInt(parts?.[1]) - 1 // 0=1st, 1=2nd
-        const real = realQualMap[groupId] || [] // real[0]=1st, real[1]=2nd
+        const real = realQualMap[groupId] || [] // real[0]=1st, real[1]=2nd, real[2]=3rd (optional)
         if (!real.length) return
-        const realPos = real.indexOf(p.value)
-        if (realPos < 0) return // not qualified
-        if (realPos === predPos) { qualPts += points.qualifier; total += points.qualifier } // exact position
-        else { qualPts += 1; total += 1 } // wrong position but qualifies
+        const realPos12 = real.slice(0, 2).indexOf(p.value) // check among 1st/2nd
+        const isThird = real[2] === p.value                  // check if 3rd qualifier
+        if (realPos12 >= 0) {
+          if (realPos12 === predPos) { qualPts += points.qualifier; total += points.qualifier } // exact
+          else { qualPts += 1; total += 1 } // qualifies wrong position
+        } else if (isThird) {
+          qualPts += 1; total += 1 // 3rd qualifier: always 1pt
+        }
       })
 
       // Knockout/champion predictions
