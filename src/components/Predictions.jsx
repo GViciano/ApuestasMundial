@@ -460,4 +460,3 @@ function PredictionsRanking({ allPredictions, profiles, points }) {
   )
 }
 
-const ALL_TEAMS = Object.keys(FLAGS).sort((a, b) => a.localeCompare(b))
