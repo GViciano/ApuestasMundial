@@ -119,6 +119,8 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
     onResultSaved?.()
   }
 
+  const minuteRanges = match.phase === 'ko' ? MINUTE_RANGES_KO : MINUTE_RANGES_GROUP
+
   const MinuteSelect = ({val, onChange, disabled}) => (
     <select value={val} onChange={e => onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
       <option value="">— Tramo —</option>

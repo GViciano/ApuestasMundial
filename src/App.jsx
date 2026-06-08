@@ -22,6 +22,7 @@ export default function App() {
   const [rankingKey, setRankingKey] = useState(0)
   const [showNameModal, setShowNameModal] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
   const switchTab = (id) => {
     setTab(id)
@@ -38,28 +39,50 @@ export default function App() {
 
   const loadGroupData = async () => {
     setLoading(true)
-    const matchIds = GROUPS[group].matches.map(m => m.id)
-    const [betsRes, resultsRes, allBetsRes, profilesRes] = await Promise.all([
-      supabase.from('bets').select('*').eq('user_id', user.id).in('match_id', matchIds),
-      supabase.from('results').select('*').in('match_id', matchIds),
-      supabase.from('bets').select('*').in('match_id', matchIds),
-      supabase.from('profiles').select('id, username, display_name').eq('is_admin', false),
-    ])
-    const betsMap = {}; betsRes.data?.forEach(b => { betsMap[b.match_id] = b })
-    const resMap = {}; resultsRes.data?.forEach(r => { resMap[r.match_id] = r })
-    // allBets: { match_id: [bet, bet, ...] }
-    const allBetsMap = {}
-    allBetsRes.data?.forEach(b => {
-      if (!allBetsMap[b.match_id]) allBetsMap[b.match_id] = []
-      allBetsMap[b.match_id].push(b)
-    })
-    // profiles: { id: display_name }
-    const profilesMap = {}
-    profilesRes.data?.forEach(p => { profilesMap[p.id] = p.display_name || p.username })
+    setLoadError('')
+    try {
+      const matchIds = GROUPS[group].matches.map(m => m.id)
+      if (!matchIds.length) { setLoading(false); return }
 
-    setBets(betsMap); setResults(resMap)
-    setAllBets(allBetsMap); setAllProfiles(profilesMap)
-    setLoading(false)
+      const [betsRes, resultsRes, allBetsRes, profilesRes] = await Promise.all([
+        supabase.from('bets').select('*').eq('user_id', user.id).in('match_id', matchIds),
+        supabase.from('results').select('*').in('match_id', matchIds),
+        supabase.from('bets').select('*').in('match_id', matchIds),
+        supabase.from('profiles').select('id, username, display_name').eq('is_admin', false),
+      ])
+
+      // Check for Supabase errors
+      const errs = [betsRes, resultsRes, allBetsRes, profilesRes]
+        .map(r => r.error?.message).filter(Boolean)
+      if (errs.length) throw new Error(errs[0])
+
+      const betsMap = {}
+      betsRes.data?.forEach(b => { betsMap[b.match_id] = b })
+
+      const resMap = {}
+      resultsRes.data?.forEach(r => { resMap[r.match_id] = r })
+
+      const allBetsMap = {}
+      allBetsRes.data?.forEach(b => {
+        if (!allBetsMap[b.match_id]) allBetsMap[b.match_id] = []
+        allBetsMap[b.match_id].push(b)
+      })
+
+      const profilesMap = {}
+      profilesRes.data?.forEach(p => {
+        profilesMap[p.id] = p.display_name || p.username
+      })
+
+      setBets(betsMap)
+      setResults(resMap)
+      setAllBets(allBetsMap)
+      setAllProfiles(profilesMap)
+    } catch (err) {
+      console.error('Error loading group data:', err)
+      setLoadError(err.message || 'Error al cargar los datos')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleLogin = (u) => {
@@ -151,7 +174,15 @@ export default function App() {
                 </span>
               ))}
             </div>
-            {loading
+            {loadError
+              ? <div style={{color:'var(--red)',fontSize:13,padding:'20px',background:'rgba(239,68,68,.1)',borderRadius:8}}>
+                  ⚠️ Error: {loadError}
+                  <button onClick={()=>{setLoadError('');loadGroupData()}}
+                    style={{marginLeft:12,fontSize:12,color:'var(--accent)',background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>
+                    Reintentar
+                  </button>
+                </div>
+              : loading
               ? <div style={{color:'var(--text3)',textAlign:'center',padding:40}}>Cargando…</div>
               : GROUPS[group].matches.map(m => (
                 <MatchCard key={m.id} match={m} user={user}
