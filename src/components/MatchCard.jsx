@@ -191,33 +191,110 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
       {!user.is_admin && (
         <div style={s.section}>
           <div style={s.sectionLabel(false)}>Tu apuesta</div>
-          <div style={s.scoreInputs}>
-            <input type="number" min="0" max="20" value={homeG} onChange={e => setHomeG(e.target.value)}
-              disabled={!open} placeholder="0" style={s.scoreInput(open)}/>
-            <span style={s.scoreDash}>-</span>
-            <input type="number" min="0" max="20" value={awayG} onChange={e => setAwayG(e.target.value)}
-              disabled={!open} placeholder="0" style={s.scoreInput(open)}/>
-          </div>
-          <div style={s.extras}>
-            <div>
-              <div style={s.extraLabel}>⚽ Primer goleador</div>
-              <PlayerSelect val={scorer} onChange={setScorer} disabled={!open}/>
-            </div>
-            <div>
-              <div style={s.extraLabel}>🕐 Tramo del primer gol</div>
-              <MinuteSelect val={minute} onChange={setMinute} disabled={!open}/>
-            </div>
-          </div>
+
+          {/* Only show inputs while match is open */}
           {open && (
-            <button style={saved ? s.btnSaved : s.btnPrimary} onClick={saveBet} disabled={saving}>
-              {saving ? 'Guardando…' : saved ? '✓ Guardada' : 'Guardar apuesta'}
-            </button>
+            <>
+              <div style={s.scoreInputs}>
+                <input type="number" min="0" max="20" value={homeG} onChange={e => setHomeG(e.target.value)}
+                  placeholder="0" style={s.scoreInput(true)}/>
+                <span style={s.scoreDash}>-</span>
+                <input type="number" min="0" max="20" value={awayG} onChange={e => setAwayG(e.target.value)}
+                  placeholder="0" style={s.scoreInput(true)}/>
+              </div>
+              <div style={s.extras}>
+                <div>
+                  <div style={s.extraLabel}>⚽ Primer goleador</div>
+                  <PlayerSelect val={scorer} onChange={setScorer} disabled={false}/>
+                </div>
+                <div>
+                  <div style={s.extraLabel}>🕐 Tramo del primer gol</div>
+                  <MinuteSelect val={minute} onChange={setMinute} disabled={false}/>
+                </div>
+              </div>
+              <button style={saved ? s.btnSaved : s.btnPrimary} onClick={saveBet} disabled={saving}>
+                {saving ? 'Guardando…' : saved ? '✓ Guardada' : 'Guardar apuesta'}
+              </button>
+            </>
           )}
+
+          {/* Once closed: show bet summary + breakdown if result exists */}
           {!open && myBet && (
-            <div style={s.savedBet}>
-              Tu apuesta: <strong>{myBet.home_goals} - {myBet.away_goals}</strong>
-              {myBet.scorer && <span> · ⚽ {myBet.scorer}</span>}
-              {myBet.minute && <span> · 🕐 {myBet.minute}'</span>}
+            <div style={{marginTop:4}}>
+              <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',
+                padding:'8px 10px',background:'var(--bg3)',borderRadius:8,marginBottom:6}}>
+                <span style={{fontSize:12,color:'var(--text3)'}}>Tu apuesta:</span>
+                <span style={{fontFamily:'var(--font-d)',fontSize:18,color:'var(--text)'}}>
+                  {myBet.home_goals} - {myBet.away_goals}
+                </span>
+                {myBet.scorer && <span style={{fontSize:12,color:'var(--text2)'}}>⚽ {myBet.scorer}</span>}
+                {myBet.minute && <span style={{fontSize:12,color:'var(--text2)'}}>🕐 {myBet.minute}'</span>}
+              </div>
+
+              {hasResult && breakdown && (
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'5px 10px',borderRadius:7,
+                    background: breakdown.exact > 0 ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)'}}>
+                    <span style={{fontSize:12,color: breakdown.exact > 0 ? 'var(--text)' : 'var(--text3)'}}>
+                      {breakdown.exact > 0 ? '✓' : '✗'} Resultado exacto ({result.home_goals}-{result.away_goals})
+                    </span>
+                    <span style={{fontSize:12,fontWeight:600,color: breakdown.exact > 0 ? 'var(--green)' : 'var(--text3)'}}>
+                      {breakdown.exact > 0 ? `+${breakdown.exact} pts` : '0 pts'}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'5px 10px',borderRadius:7,
+                    background: breakdown.sign > 0 ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)'}}>
+                    <span style={{fontSize:12,color: breakdown.sign > 0 ? 'var(--text)' : 'var(--text3)'}}>
+                      {breakdown.sign > 0 ? '✓' : '✗'} Ganador/empate
+                    </span>
+                    <span style={{fontSize:12,fontWeight:600,color: breakdown.sign > 0 ? 'var(--green)' : 'var(--text3)'}}>
+                      {breakdown.sign > 0 ? `+${breakdown.sign} pts` : '0 pts'}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'5px 10px',borderRadius:7,
+                    background: breakdown.scorer > 0 ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)'}}>
+                    <span style={{fontSize:12,color: breakdown.scorer > 0 ? 'var(--text)' : 'var(--text3)'}}>
+                      {breakdown.scorer > 0 ? '✓' : '✗'} Goleador
+                      {myBet.scorer && <span style={{color:'var(--text3)'}}> ({myBet.scorer}{result.scorer && myBet.scorer !== result.scorer ? ` → ${result.scorer}` : ''})</span>}
+                      {!myBet.scorer && <span style={{color:'var(--text3)'}}> (no apostaste)</span>}
+                    </span>
+                    <span style={{fontSize:12,fontWeight:600,color: breakdown.scorer > 0 ? 'var(--green)' : 'var(--text3)'}}>
+                      {breakdown.scorer > 0 ? `+${breakdown.scorer} pts` : '0 pts'}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'5px 10px',borderRadius:7,
+                    background: breakdown.minute > 0 ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)'}}>
+                    <span style={{fontSize:12,color: breakdown.minute > 0 ? 'var(--text)' : 'var(--text3)'}}>
+                      {breakdown.minute > 0 ? '✓' : '✗'} Tramo del gol
+                      {myBet.minute && <span style={{color:'var(--text3)'}}> ({myBet.minute}'{result.minute && myBet.minute !== result.minute ? ` → ${result.minute}'` : ''})</span>}
+                      {!myBet.minute && <span style={{color:'var(--text3)'}}> (no apostaste)</span>}
+                    </span>
+                    <span style={{fontSize:12,fontWeight:600,color: breakdown.minute > 0 ? 'var(--green)' : 'var(--text3)'}}>
+                      {breakdown.minute > 0 ? `+${breakdown.minute} pts` : '0 pts'}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'6px 10px',borderRadius:7,marginTop:2,
+                    background: earned > 0 ? 'rgba(34,197,94,.12)' : 'rgba(255,255,255,.04)',
+                    border: `1px solid ${earned > 0 ? 'rgba(34,197,94,.3)' : 'var(--border)'}`}}>
+                    <span style={{fontSize:13,fontWeight:600,color: earned > 0 ? 'var(--green)' : 'var(--text3)'}}>Total este partido</span>
+                    <span style={{fontSize:15,fontWeight:700,color: earned > 0 ? 'var(--green)' : 'var(--text3)'}}>
+                      {earned > 0 ? `+${earned} pts` : '0 pts'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Closed but no result yet */}
+              {!hasResult && (
+                <div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic',padding:'4px 0'}}>
+                  Esperando resultado del partido…
+                </div>
+              )}
             </div>
           )}
           {!open && !myBet && (
