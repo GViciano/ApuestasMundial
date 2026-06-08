@@ -214,18 +214,22 @@ export function timeLeft(iso) {
 export function getSign(hg,ag){ return hg>ag?'H':hg<ag?'A':'D' }
 export function calcPoints(bet,result,pts) {
   if(!bet||!result||result.home_goals===undefined) return null
+  const bh=+bet.home_goals, ba=+bet.away_goals
+  const rh=+result.home_goals, ra=+result.away_goals
   let p=0
-  if(bet.home_goals===result.home_goals&&bet.away_goals===result.away_goals) p+=pts.exact
-  if(getSign(bet.home_goals,bet.away_goals)===getSign(result.home_goals,result.away_goals)) p+=pts.sign
+  if(bh===rh&&ba===ra) p+=pts.exact
+  if(getSign(bh,ba)===getSign(rh,ra)) p+=pts.sign
   if(bet.scorer&&result.scorer&&bet.scorer===result.scorer) p+=pts.scorer
   if(bet.minute&&result.minute&&bet.minute===result.minute) p+=pts.minute
   return p
 }
 export function calcPointsBreakdown(bet,result,pts) {
   if(!bet||!result||result.home_goals===undefined) return null
+  const bh=+bet.home_goals, ba=+bet.away_goals
+  const rh=+result.home_goals, ra=+result.away_goals
   return {
-    exact:(bet.home_goals===result.home_goals&&bet.away_goals===result.away_goals)?pts.exact:0,
-    sign:getSign(bet.home_goals,bet.away_goals)===getSign(result.home_goals,result.away_goals)?pts.sign:0,
+    exact:(bh===rh&&ba===ra)?pts.exact:0,
+    sign:getSign(bh,ba)===getSign(rh,ra)?pts.sign:0,
     scorer:(bet.scorer&&result.scorer&&bet.scorer===result.scorer)?pts.scorer:0,
     minute:(bet.minute&&result.minute&&bet.minute===result.minute)?pts.minute:0,
   }
