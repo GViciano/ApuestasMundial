@@ -27,6 +27,7 @@ const sel = (accent) => ({
 })
 
 export default function Predictions({ user, points }) {
+  const isAdmin = user.is_admin === true || user.is_admin === 'true'
   const [myPredictions, setMyPredictions] = useState({}) // key -> value or [value1, value2]
   const [allPredictions, setAllPredictions] = useState([]) // all users predictions
   const [profiles, setProfiles] = useState({}) // id -> name
@@ -47,7 +48,7 @@ export default function Predictions({ user, points }) {
       supabase.from('predictions').select('*'),
       supabase.from('profiles').select('id, username, display_name').eq('is_admin', false),
       supabase.from('group_qualifiers').select('*'),
-      supabase.from('prediction_results').select('*'),
+      supabase.from('prediction_results').select('*').throwOnError(false),
     ])
     const map = {}
     myRes.data?.forEach(p => {
@@ -75,16 +76,26 @@ export default function Predictions({ user, points }) {
     const key = type === 'group_qualifier' ? `qualifier_${extra}` : type
     setSaving(s => ({ ...s, [key]: true }))
 
-    // Delete existing then insert new
-    let q = supabase.from('predictions').delete().eq('user_id', user.id).eq('prediction_type', type)
-    if (extra) q = q.eq('extra', extra)
-    await q
+    // Delete existing rows - must handle null extra carefully (SQL: col = null never matches, need IS NULL)
+    let deleteQ = supabase.from('predictions').delete().eq('user_id', user.id).eq('prediction_type', type)
+    if (extra != null) {
+      deleteQ = deleteQ.eq('extra', extra)
+    } else {
+      deleteQ = deleteQ.is('extra', null)
+    }
+    const { error: delErr } = await deleteQ
+    if (delErr) console.error('Delete error:', delErr)
 
-    if (values.filter(Boolean).length > 0) {
-      const rows = values.filter(Boolean).map(v => ({
-        user_id: user.id, prediction_type: type, extra: extra || null, value: v,
+    const validValues = values.filter(Boolean)
+    if (validValues.length > 0) {
+      const rows = validValues.map(v => ({
+        user_id: user.id,
+        prediction_type: type,
+        extra: extra || null,
+        value: v,
       }))
-      await supabase.from('predictions').insert(rows)
+      const { error: insErr } = await supabase.from('predictions').insert(rows)
+      if (insErr) console.error('Insert error:', insErr)
     }
 
     setSaving(s => ({ ...s, [key]: false }))
@@ -186,7 +197,7 @@ function GroupQualifiers({ user, open, myPredictions, saving, saved, onSave, poi
           return (
             <GroupQualifierCard key={g} group={g} teams={teams} current={current}
               open={open} saving={saving[key]} saved={saved[key]}
-              real={real} isAdmin={user.is_admin} onReload={onReload}
+              real={real} isAdmin={isAdmin} onReload={onReload}
               onSave={(vals) => onSave('group_qualifier', g, vals)}
               points={points} />
           )
@@ -406,7 +417,7 @@ function KnockoutPredictions({ user, open, myPredictions, saving, saved, onSave,
           current={myPredictions[key] || []} open={open}
           saving={saving[key]} saved={saved[key]}
           real={realResults[key] || []}
-          isAdmin={user.is_admin} onReload={onReload}
+          isAdmin={isAdmin} onReload={onReload}
           onSave={(vals) => onSave(key, null, vals)} />
       ))}
     </div>
@@ -583,7 +594,7 @@ function ChampionPrediction({ user, open, myPredictions, saving, saved, onSave, 
       </p>
 
       {/* Admin real champion */}
-      {user.is_admin && (
+      {isAdmin && (
         <div style={{ background:'rgba(245,166,35,.05)', border:'1px solid rgba(245,166,35,.2)', borderRadius:10, padding:'12px 14px', marginBottom:14 }}>
           <div style={{ fontSize:11, color:'var(--accent)', marginBottom:8, textTransform:'uppercase', letterSpacing:.7 }}>Campeón real</div>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
@@ -624,7 +635,7 @@ function ChampionPrediction({ user, open, myPredictions, saving, saved, onSave, 
             {hit && <div style={{ fontSize:20, marginTop:4 }}>+{points.champion} pts</div>}
           </div>
         )}
-        {!user.is_admin && open && (
+        {!isAdmin && open && (
           <>
             <select value={selected} onChange={e => setSelected(e.target.value)}
               style={{ ...sel(selected), maxWidth:300, marginBottom:12 }}>
@@ -643,7 +654,7 @@ function ChampionPrediction({ user, open, myPredictions, saving, saved, onSave, 
             </button>
           </>
         )}
-        {!user.is_admin && !open && !current && (
+        {!isAdmin && !open && !current && (
           <div style={{ fontSize:13, color:'var(--text3)', fontStyle:'italic' }}>Sin predicción del campeón</div>
         )}
       </div>
