@@ -62,9 +62,19 @@ export default function Predictions({ user, points }) {
 
       const map = {}
       myRes.data?.forEach(p => {
-        const key = p.prediction_type === 'group_qualifier' ? `qualifier_${p.extra}` : p.prediction_type
-        if (!map[key]) map[key] = []
-        map[key].push(p.value)
+        if (p.prediction_type === 'group_qualifier') {
+          // extra format: 'A_1' or 'A_2'
+          const parts = p.extra?.split('_')
+          const groupId = parts?.[0]
+          const pos = parseInt(parts?.[1]) - 1 // 0-indexed
+          const key = `qualifier_${groupId}`
+          if (!map[key]) map[key] = ['', '']
+          if (pos === 0 || pos === 1) map[key][pos] = p.value
+        } else {
+          const key = p.prediction_type
+          if (!map[key]) map[key] = []
+          map[key].push(p.value)
+        }
       })
       setMyPredictions(map)
       setAllPredictions(allRes.data || [])
@@ -75,9 +85,11 @@ export default function Predictions({ user, points }) {
 
       const qm = {}
       qualRes.data?.forEach(q => {
-        if (!qm[q.group_id]) qm[q.group_id] = []
-        qm[q.group_id].push(q.team)
+        if (!qm[q.group_id]) qm[q.group_id] = [null, null]
+        qm[q.group_id][q.position - 1] = q.team
       })
+      // Clean nulls
+      Object.keys(qm).forEach(g => { qm[g] = qm[g].filter(Boolean) })
       setRealQualifiers(qm)
 
       const rm = {}
@@ -95,26 +107,37 @@ export default function Predictions({ user, points }) {
     const key = type === 'group_qualifier' ? `qualifier_${extra}` : type
     setSaving(s => ({ ...s, [key]: true }))
 
-    // Delete existing rows - must handle null extra carefully (SQL: col = null never matches, need IS NULL)
-    let deleteQ = supabase.from('predictions').delete().eq('user_id', user.id).eq('prediction_type', type)
-    if (extra != null) {
-      deleteQ = deleteQ.eq('extra', extra)
+    if (type === 'group_qualifier') {
+      // For qualifiers, store each team with position encoded: extra='A_1', extra='A_2'
+      await supabase.from('predictions').delete().eq('user_id', user.id).eq('prediction_type', type).like('extra', extra + '_%')
+      const validValues = values.filter(Boolean)
+      if (validValues.length > 0) {
+        const rows = validValues.map((v, i) => ({
+          user_id: user.id,
+          prediction_type: type,
+          extra: `${extra}_${i + 1}`, // e.g. 'A_1', 'A_2'
+          value: v,
+        }))
+        const { error: insErr } = await supabase.from('predictions').insert(rows)
+        if (insErr) console.error('Insert error:', insErr)
+      }
     } else {
-      deleteQ = deleteQ.is('extra', null)
-    }
-    const { error: delErr } = await deleteQ
-    if (delErr) console.error('Delete error:', delErr)
+      // For other types (semifinal, finalist, champion), extra is null
+      let deleteQ = supabase.from('predictions').delete().eq('user_id', user.id).eq('prediction_type', type).is('extra', null)
+      const { error: delErr } = await deleteQ
+      if (delErr) console.error('Delete error:', delErr)
 
-    const validValues = values.filter(Boolean)
-    if (validValues.length > 0) {
-      const rows = validValues.map(v => ({
-        user_id: user.id,
-        prediction_type: type,
-        extra: extra || null,
-        value: v,
-      }))
-      const { error: insErr } = await supabase.from('predictions').insert(rows)
-      if (insErr) console.error('Insert error:', insErr)
+      const validValues = values.filter(Boolean)
+      if (validValues.length > 0) {
+        const rows = validValues.map(v => ({
+          user_id: user.id,
+          prediction_type: type,
+          extra: null,
+          value: v,
+        }))
+        const { error: insErr } = await supabase.from('predictions').insert(rows)
+        if (insErr) console.error('Insert error:', insErr)
+      }
     }
 
     setSaving(s => ({ ...s, [key]: false }))

@@ -16,11 +16,12 @@ export default function Login({ onLogin }) {
       if (mode === 'login') {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, username, display_name, password_hash, is_admin, created_at')
+          .select('*')
           .eq('username', username.trim())
-          .eq('password_hash', btoa(password))
           .single()
+        console.log('Login debug:', JSON.stringify({ error, hasData: !!data, storedHash: data?.password_hash, inputHash: btoa(password) }))
         if (error || !data) { setErr('Usuario o contraseña incorrectos'); setLoading(false); return }
+        if (data.password_hash !== btoa(password)) { setErr('Usuario o contraseña incorrectos'); setLoading(false); return }
         onLogin(data)
       } else {
         if (username.trim().length < 3) { setErr('Mínimo 3 caracteres'); setLoading(false); return }

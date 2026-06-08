@@ -27,11 +27,15 @@ export default function Ranking({ points }) {
     const resultsMap = {}
     results?.forEach(r => { resultsMap[r.match_id] = r })
 
-    // Real qualifiers map: { 'A': ['España','Uruguay'], ... }
+    // Real qualifiers map: { 'A': ['1stTeam', '2ndTeam'] } — sorted by position
     const realQualMap = {}
     realQuals?.forEach(q => {
-      if (!realQualMap[q.group_id]) realQualMap[q.group_id] = []
-      realQualMap[q.group_id].push(q.team)
+      if (!realQualMap[q.group_id]) realQualMap[q.group_id] = [null, null]
+      realQualMap[q.group_id][q.position - 1] = q.team // position 1 → index 0, position 2 → index 1
+    })
+    // Remove nulls for groups with only 1 qualifier set
+    Object.keys(realQualMap).forEach(g => {
+      realQualMap[g] = realQualMap[g].filter(Boolean)
     })
 
     // Real knockout prediction results map
@@ -53,25 +57,19 @@ export default function Ranking({ points }) {
         total+=bd.exact+bd.sign+bd.scorer+bd.minute
       })
 
-      // Qualifier predictions — position-aware scoring
-      const userPreds = (predictions||[]).filter(p => p.user_id===u.id && p.prediction_type==='group_qualifier')
-      // Group user preds by group: { 'A': [{extra:'A',value:'España'}, ...] }
-      const predsByGroup = {}
-      userPreds.forEach(p => {
-        if (!predsByGroup[p.extra]) predsByGroup[p.extra] = []
-        predsByGroup[p.extra].push(p)
-      })
-      Object.entries(predsByGroup).forEach(([groupId, preds]) => {
+      // Qualifier predictions — position-aware scoring using extra='A_1','A_2' format
+      const userQualPreds = (predictions||[]).filter(p => p.user_id===u.id && p.prediction_type==='group_qualifier')
+      userQualPreds.forEach(p => {
+        // extra format: 'A_1' or 'A_2'
+        const parts = p.extra?.split('_')
+        const groupId = parts?.[0]
+        const predPos = parseInt(parts?.[1]) - 1 // 0=1st, 1=2nd
         const real = realQualMap[groupId] || [] // real[0]=1st, real[1]=2nd
         if (!real.length) return
-        // preds are in insertion order — first inserted = 1st pick, second = 2nd pick
-        preds.sort((a,b) => new Date(a.created_at)-new Date(b.created_at))
-        preds.forEach((p, i) => {
-          const realPos = real.indexOf(p.value)
-          if (realPos < 0) return // not qualified
-          if (realPos === i) { qualPts += points.qualifier; total += points.qualifier } // exact position
-          else { qualPts += 1; total += 1 } // wrong position but qualifies
-        })
+        const realPos = real.indexOf(p.value)
+        if (realPos < 0) return // not qualified
+        if (realPos === predPos) { qualPts += points.qualifier; total += points.qualifier } // exact position
+        else { qualPts += 1; total += 1 } // wrong position but qualifies
       })
 
       // Knockout/champion predictions
