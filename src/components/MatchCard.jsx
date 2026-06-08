@@ -46,7 +46,7 @@ function signLabel(hg, ag) {
 }
 
 export default function MatchCard({ match, user, myBet, result, allBets, allProfiles, points, onBetSaved, onResultSaved }) {
-  const open = isOpen(match.date)
+  const open = isOpen(match.date) && !hasResult  // locked by time OR by admin result
   const tl = timeLeft(match.date)
   const hasResult = result && result.home_goals !== undefined
   const earned = calcPoints(myBet, result, points)

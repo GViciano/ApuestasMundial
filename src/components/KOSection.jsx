@@ -72,17 +72,19 @@ export default function KOSection({ user, points }) {
     const existingInRound = koMatches.filter(m => m.round === addRound)
     if (existingInRound.length >= round.slots) return setAddMsg(`Máximo ${round.slots} partido(s) en ${round.label}`)
 
-    // Build ISO date from European fields — treat as Madrid time (UTC+1 in winter, UTC+2 in summer)
+    // Build ISO date from European fields — treat input as Madrid time
     let matchDate = null
     if (addDay && addMonth && addYear && addHour) {
       const d = parseInt(addDay), mo = parseInt(addMonth), y = parseInt(addYear)
       const h = parseInt(addHour), mi = parseInt(addMin) || 0
-      // Use a date string that JavaScript parses as local time, then convert
-      const localStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00`
-      // Treat as Europe/Madrid — approximate: UTC+2 in June-July (summer), UTC+1 rest of year
+      // Madrid is UTC+2 in summer (Mar-Oct), UTC+1 in winter
       const isSummer = mo >= 3 && mo <= 10
-      const offsetMs = (isSummer ? 2 : 1) * 3600000
-      matchDate = new Date(new Date(localStr).getTime() - offsetMs).toISOString()
+      const offsetHours = isSummer ? 2 : 1
+      // Build UTC time by subtracting Madrid offset from the input hours
+      const utcH = h - offsetHours
+      // Use Date.UTC to avoid any local timezone interference
+      const utcDate = new Date(Date.UTC(y, mo - 1, d, utcH, mi, 0))
+      matchDate = utcDate.toISOString()
     }
 
     const id = `${addRound}_${Date.now()}`
