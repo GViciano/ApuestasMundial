@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
 import { SQUADS, fmtDate, isOpen, timeLeft, calcPoints, calcPointsBreakdown, getSign, MINUTE_RANGES_GROUP, MINUTE_RANGES_KO } from '../data.js'
 import Flag from './Flag.jsx'
 
 const s = {
-  card:(hasResult)=>({background:'var(--bg2)',border:`1px solid ${hasResult?'var(--border2)':'var(--border)'}`,borderRadius:12,padding:16,marginBottom:10}),
+  card:(hasResult,resultSaved)=>({
+    background:'var(--bg2)',
+    border:`1px solid ${resultSaved?'rgba(34,197,94,.5)':hasResult?'var(--border2)':'var(--border)'}`,
+    borderRadius:12,padding:16,marginBottom:10,
+    transition:'border-color .3s',
+  }),
   header:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12,gap:8},
   date:{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:.8},
   badgeTime:{fontSize:12,padding:'3px 8px',borderRadius:20,color:'var(--accent)',background:'rgba(245,166,35,.1)'},
@@ -25,7 +30,6 @@ const s = {
   extras:{display:'flex',flexDirection:'column',gap:10,marginBottom:10},
   extraLabel:{fontSize:11,color:'var(--text3)',marginBottom:4},
   sel:(open)=>({background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:7,padding:'8px 10px',color:'var(--text)',fontSize:13,width:'100%',fontFamily:'var(--font-b)',opacity:open?1:.4}),
-  minInput:(open)=>({background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:7,padding:'8px 10px',color:'var(--text)',fontSize:13,width:'100%',fontFamily:'var(--font-b)',opacity:open?1:.4}),
   btnPrimary:{width:'100%',padding:9,borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',border:'none',background:'var(--accent)',color:'#0a0f1e'},
   btnSaved:{width:'100%',padding:9,borderRadius:8,fontSize:13,fontWeight:500,cursor:'default',border:'1px solid var(--border)',background:'transparent',color:'var(--text3)'},
   btnSecondary:{width:'100%',padding:9,borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',border:'1px solid var(--border2)',background:'var(--bg4)',color:'var(--text)'},
@@ -50,6 +54,7 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
   const homeSquad = SQUADS[match.home] || []
   const awaySquad = SQUADS[match.away] || []
 
+  // Player bet state
   const [homeG, setHomeG] = useState(myBet?.home_goals ?? '')
   const [awayG, setAwayG] = useState(myBet?.away_goals ?? '')
   const [scorer, setScorer] = useState(myBet?.scorer || '')
@@ -58,34 +63,64 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
   const [saved, setSaved] = useState(false)
   const [showOtherBets, setShowOtherBets] = useState(false)
 
+  // Admin result state — synced with result prop via useEffect
   const [rHomeG, setRHomeG] = useState(result?.home_goals ?? '')
   const [rAwayG, setRAwayG] = useState(result?.away_goals ?? '')
   const [rScorer, setRScorer] = useState(result?.scorer || '')
   const [rMinute, setRMinute] = useState(result?.minute || '')
+  const [resultSaved, setResultSaved] = useState(hasResult)
+
+  // Sync admin fields when result prop changes (after parent reloads)
+  useEffect(() => {
+    if (result) {
+      setRHomeG(result.home_goals ?? '')
+      setRAwayG(result.away_goals ?? '')
+      setRScorer(result.scorer || '')
+      setRMinute(result.minute || '')
+      setResultSaved(true)
+    }
+  }, [result])
 
   const saveBet = async () => {
     if (homeG === '' || awayG === '') return
     setSaving(true)
-    const payload = { user_id:user.id, match_id:match.id, home_goals:+homeG, away_goals:+awayG, scorer:scorer||null, minute:minute?+minute:null }
+    const payload = {
+      user_id: user.id, match_id: match.id,
+      home_goals: +homeG, away_goals: +awayG,
+      scorer: scorer || null,
+      minute: minute || null,  // keep as string, no + conversion
+    }
     if (myBet?.id) await supabase.from('bets').update(payload).eq('id', myBet.id)
     else await supabase.from('bets').insert(payload)
     setSaving(false); setSaved(true)
-    setTimeout(()=>setSaved(false), 1500)
+    setTimeout(() => setSaved(false), 1500)
     onBetSaved?.()
   }
 
   const saveResult = async () => {
     if (rHomeG === '' || rAwayG === '') return
-    const payload = { match_id:match.id, home_goals:+rHomeG, away_goals:+rAwayG, scorer:rScorer||null, minute:rMinute?+rMinute:null }
+    const payload = {
+      match_id: match.id,
+      home_goals: +rHomeG, away_goals: +rAwayG,
+      scorer: rScorer || null,
+      minute: rMinute || null,  // keep as string, no + conversion
+    }
     if (result?.id) await supabase.from('results').update(payload).eq('id', result.id)
     else await supabase.from('results').insert(payload)
+    setResultSaved(true)
     onResultSaved?.()
   }
 
-  const minuteRanges = match.phase === 'ko' ? MINUTE_RANGES_KO : MINUTE_RANGES_GROUP
+  const deleteResult = async () => {
+    if (!confirm(`¿Borrar el resultado de ${match.home} - ${match.away}? Se eliminarán los puntos calculados.`)) return
+    await supabase.from('results').delete().eq('match_id', match.id)
+    setRHomeG(''); setRAwayG(''); setRScorer(''); setRMinute('')
+    setResultSaved(false)
+    onResultSaved?.()
+  }
 
   const MinuteSelect = ({val, onChange, disabled}) => (
-    <select value={val} onChange={e=>onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
+    <select value={val} onChange={e => onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
       <option value="">— Tramo —</option>
       {minuteRanges.map(r => (
         <option key={r.value} value={r.value}>{r.label}</option>
@@ -94,13 +129,13 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
   )
 
   const PlayerSelect = ({val, onChange, disabled}) => (
-    <select value={val} onChange={e=>onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
+    <select value={val} onChange={e => onChange(e.target.value)} disabled={disabled} style={s.sel(!disabled)}>
       <option value="">— Ninguno / sin goles —</option>
       <optgroup label={`── ${match.home} ──`}>
-        {homeSquad.map(p=><option key={p} value={p}>{p}</option>)}
+        {homeSquad.map(p => <option key={p} value={p}>{p}</option>)}
       </optgroup>
       <optgroup label={`── ${match.away} ──`}>
-        {awaySquad.map(p=><option key={p} value={p}>{p}</option>)}
+        {awaySquad.map(p => <option key={p} value={p}>{p}</option>)}
       </optgroup>
     </select>
   )
@@ -109,20 +144,22 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
   const otherBets = !open ? (allBets || []).filter(b => b.user_id !== user.id) : []
 
   return (
-    <div style={s.card(hasResult)}>
+    <div style={s.card(hasResult, resultSaved && user.is_admin)}>
       {/* Header */}
       <div style={s.header}>
         <span style={s.date}>{fmtDate(match.date)}</span>
         <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
           {earned !== null ? (
             <>
-              <span style={earned>0?s.badgePts:s.badgeZero}>{earned>0?`+${earned} pts`:'0 pts'}</span>
-              {earned>0&&breakdown&&(
+              <span style={earned > 0 ? s.badgePts : s.badgeZero}>
+                {earned > 0 ? `+${earned} pts` : '0 pts'}
+              </span>
+              {earned > 0 && breakdown && (
                 <div style={s.ptsDetail}>
-                  {breakdown.exact>0&&<span style={s.ptsChip}>🎯+{breakdown.exact}</span>}
-                  {breakdown.sign>0&&<span style={s.ptsChip}>✅+{breakdown.sign}</span>}
-                  {breakdown.scorer>0&&<span style={s.ptsChip}>⚽+{breakdown.scorer}</span>}
-                  {breakdown.minute>0&&<span style={s.ptsChip}>🕐+{breakdown.minute}</span>}
+                  {breakdown.exact > 0 && <span style={s.ptsChip}>🎯+{breakdown.exact}</span>}
+                  {breakdown.sign > 0 && <span style={s.ptsChip}>✅+{breakdown.sign}</span>}
+                  {breakdown.scorer > 0 && <span style={s.ptsChip}>⚽+{breakdown.scorer}</span>}
+                  {breakdown.minute > 0 && <span style={s.ptsChip}>🕐+{breakdown.minute}</span>}
                 </div>
               )}
             </>
@@ -153,10 +190,10 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
         <div style={s.section}>
           <div style={s.sectionLabel(false)}>Tu apuesta</div>
           <div style={s.scoreInputs}>
-            <input type="number" min="0" max="20" value={homeG} onChange={e=>setHomeG(e.target.value)}
+            <input type="number" min="0" max="20" value={homeG} onChange={e => setHomeG(e.target.value)}
               disabled={!open} placeholder="0" style={s.scoreInput(open)}/>
             <span style={s.scoreDash}>-</span>
-            <input type="number" min="0" max="20" value={awayG} onChange={e=>setAwayG(e.target.value)}
+            <input type="number" min="0" max="20" value={awayG} onChange={e => setAwayG(e.target.value)}
               disabled={!open} placeholder="0" style={s.scoreInput(open)}/>
           </div>
           <div style={s.extras}>
@@ -170,8 +207,8 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
             </div>
           </div>
           {open && (
-            <button style={saved?s.btnSaved:s.btnPrimary} onClick={saveBet} disabled={saving}>
-              {saving?'Guardando…':saved?'✓ Guardada':'Guardar apuesta'}
+            <button style={saved ? s.btnSaved : s.btnPrimary} onClick={saveBet} disabled={saving}>
+              {saving ? 'Guardando…' : saved ? '✓ Guardada' : 'Guardar apuesta'}
             </button>
           )}
           {!open && myBet && (
@@ -189,12 +226,33 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
 
       {/* Admin result section */}
       {user.is_admin && (
-        <div style={s.section}>
-          <div style={s.sectionLabel(true)}>Resultado real</div>
+        <div style={{...s.section, background: resultSaved ? 'rgba(34,197,94,.05)' : 'transparent', borderRadius: 8, padding: '12px 8px 8px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <div style={s.sectionLabel(true)}>Resultado real</div>
+            {resultSaved && (
+              <span style={{fontSize:11,color:'var(--green)',background:'rgba(34,197,94,.15)',
+                padding:'2px 8px',borderRadius:20,fontWeight:500}}>
+                ✓ Guardado
+              </span>
+            )}
+          </div>
+          {resultSaved && (
+            <div style={{fontSize:12,color:'var(--text2)',marginBottom:10,padding:'8px 10px',
+              background:'var(--bg3)',borderRadius:8,display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{fontFamily:'var(--font-d)',fontSize:20,color:'var(--accent)'}}>
+                {rHomeG} - {rAwayG}
+              </span>
+              {rScorer && <span>⚽ {rScorer}</span>}
+              {rMinute && <span>🕐 {rMinute}'</span>}
+              <span style={{color:'var(--text3)',fontSize:11,marginLeft:'auto'}}>Toca para editar ↓</span>
+            </div>
+          )}
           <div style={s.scoreInputs}>
-            <input type="number" min="0" value={rHomeG} onChange={e=>setRHomeG(e.target.value)} placeholder="0" style={s.scoreInput(true)}/>
+            <input type="number" min="0" value={rHomeG} onChange={e => setRHomeG(e.target.value)}
+              placeholder="0" style={s.scoreInput(true)}/>
             <span style={s.scoreDash}>-</span>
-            <input type="number" min="0" value={rAwayG} onChange={e=>setRAwayG(e.target.value)} placeholder="0" style={s.scoreInput(true)}/>
+            <input type="number" min="0" value={rAwayG} onChange={e => setRAwayG(e.target.value)}
+              placeholder="0" style={s.scoreInput(true)}/>
           </div>
           <div style={s.extras}>
             <div>
@@ -206,16 +264,28 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
               <MinuteSelect val={rMinute} onChange={setRMinute} disabled={false}/>
             </div>
           </div>
-          <button style={s.btnSecondary} onClick={saveResult}>Guardar resultado</button>
+          <div style={{display:'flex',gap:8}}>
+            <button style={{...s.btnSecondary, flex:1}} onClick={saveResult}>
+              {resultSaved ? '💾 Actualizar resultado' : '💾 Guardar resultado'}
+            </button>
+            {resultSaved && (
+              <button onClick={deleteResult}
+                style={{padding:'9px 14px',borderRadius:8,fontSize:13,fontWeight:500,cursor:'pointer',
+                  border:'1px solid rgba(239,68,68,.4)',background:'rgba(239,68,68,.08)',
+                  color:'var(--red)',whiteSpace:'nowrap'}}>
+                🗑 Borrar
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Other players' bets — visible once match has started */}
+      {/* Other players' bets */}
       {!open && otherBets.length > 0 && (
         <div style={s.section}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
             <div style={s.sectionLabel(false)}>Apuestas de todos ({otherBets.length})</div>
-            <button style={s.btnGhost} onClick={()=>setShowOtherBets(v=>!v)}>
+            <button style={s.btnGhost} onClick={() => setShowOtherBets(v => !v)}>
               {showOtherBets ? 'Ocultar ▲' : 'Ver ▼'}
             </button>
           </div>
@@ -223,7 +293,7 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
             <div style={{display:'flex',flexDirection:'column',gap:6}}>
               {otherBets.map(b => {
                 const bd = calcPointsBreakdown(b, result, points)
-                const bPts = bd ? bd.exact+bd.sign+bd.scorer+bd.minute : null
+                const bPts = bd ? bd.exact + bd.sign + bd.scorer + bd.minute : null
                 const name = allProfiles[b.user_id] || '?'
                 return (
                   <div key={b.user_id} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8,alignItems:'center',
@@ -233,16 +303,16 @@ export default function MatchCard({ match, user, myBet, result, allBets, allProf
                       <span style={{color:'var(--text3)',marginLeft:10,fontFamily:'var(--font-d)',fontSize:16}}>
                         {b.home_goals} - {b.away_goals}
                       </span>
-                      <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>{signLabel(b.home_goals,b.away_goals)}</span>
+                      <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>{signLabel(b.home_goals, b.away_goals)}</span>
                       {b.scorer && <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>⚽ {b.scorer}</span>}
                       {b.minute && <span style={{color:'var(--text3)',fontSize:11,marginLeft:8}}>🕐 {b.minute}'</span>}
                     </div>
                     {bPts !== null && (
                       <span style={{fontSize:12,fontWeight:600,
-                        color:bPts>0?'var(--green)':'var(--text3)',
-                        background:bPts>0?'rgba(34,197,94,.15)':'rgba(255,255,255,.05)',
+                        color: bPts > 0 ? 'var(--green)' : 'var(--text3)',
+                        background: bPts > 0 ? 'rgba(34,197,94,.15)' : 'rgba(255,255,255,.05)',
                         padding:'2px 8px',borderRadius:20,whiteSpace:'nowrap'}}>
-                        {bPts>0?`+${bPts} pts`:'0 pts'}
+                        {bPts > 0 ? `+${bPts} pts` : '0 pts'}
                       </span>
                     )}
                   </div>
