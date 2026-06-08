@@ -12,12 +12,12 @@ const isPredictionOpen = () => new Date() < TOURNAMENT_START
 function timeLeftStr() {
   const diff = TOURNAMENT_START - new Date()
   if (diff <= 0) return null
-  const d = Math.floor(diff / 86400000)
-  const h = Math.floor((diff % 86400000) / 3600000)
-  const m = Math.floor((diff % 3600000) / 60000)
-  if (d > 0) return `${d}d ${h}h`
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m`
+  const days = Math.floor(diff / 86400000)
+  const hrs = Math.floor((diff % 86400000) / 3600000)
+  const mins = Math.floor((diff % 3600000) / 60000)
+  if (days > 0) return `${days}d ${hrs}h`
+  if (hrs > 0) return `${hrs}h ${mins}m`
+  return `${mins}m`
 }
 
 const sel = (accent) => ({

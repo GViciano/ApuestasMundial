@@ -75,15 +75,12 @@ export default function KOSection({ user, points }) {
     // Build ISO date from European fields — treat input as Madrid time
     let matchDate = null
     if (addDay && addMonth && addYear && addHour) {
-      const d = parseInt(addDay), mo = parseInt(addMonth), y = parseInt(addYear)
-      const h = parseInt(addHour), mi = parseInt(addMin) || 0
+      const dayN = parseInt(addDay), monN = parseInt(addMonth), yearN = parseInt(addYear)
+      const hourN = parseInt(addHour), minN = parseInt(addMin) || 0
       // Madrid is UTC+2 in summer (Mar-Oct), UTC+1 in winter
-      const isSummer = mo >= 3 && mo <= 10
+      const isSummer = monN >= 3 && monN <= 10
       const offsetHours = isSummer ? 2 : 1
-      // Build UTC time by subtracting Madrid offset from the input hours
-      const utcH = h - offsetHours
-      // Use Date.UTC to avoid any local timezone interference
-      const utcDate = new Date(Date.UTC(y, mo - 1, d, utcH, mi, 0))
+      const utcDate = new Date(Date.UTC(yearN, monN - 1, dayN, hourN - offsetHours, minN, 0))
       matchDate = utcDate.toISOString()
     }
 
