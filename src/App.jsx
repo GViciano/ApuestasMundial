@@ -21,6 +21,7 @@ export default function App() {
   const [points, setPoints] = useState(DEF_PTS)
   const [rankingKey, setRankingKey] = useState(0)
   const [showNameModal, setShowNameModal] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const switchTab = (id) => {
     setTab(id)
@@ -82,15 +83,6 @@ export default function App() {
 
   if (!user) return <Login onLogin={handleLogin}/>
 
-  // Name modal shown as overlay on top of the app
-  if (showNameModal) return (
-    <NameModal
-      user={user}
-      onSaved={handleNameSaved}
-      onSkip={() => setShowNameModal(false)}
-    />
-  )
-
   const navItems = [
     {id:'groups',  label:'⚽ Grupos'},
     {id:'ko',      label:'🏆 Cruces'},
@@ -100,6 +92,13 @@ export default function App() {
 
   return (
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+      {showNameModal && (
+        <NameModal
+          user={user}
+          onSaved={handleNameSaved}
+          onSkip={() => setShowNameModal(false)}
+        />
+      )}
       {/* Header */}
       <div style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100}}>
         <div style={{fontFamily:'var(--font-d)',fontSize:22,letterSpacing:2,color:'var(--accent)'}}>⚽ MUNDIAL 2026</div>
