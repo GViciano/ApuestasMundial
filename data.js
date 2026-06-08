@@ -11,4 +11,4 @@ button{cursor:pointer;font-family:var(--font-b);border:none;outline:none;transit
 input,select{font-family:var(--font-b);outline:none}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px} 
