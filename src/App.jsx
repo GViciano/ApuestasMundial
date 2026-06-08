@@ -8,6 +8,7 @@ import Settings from './components/Settings.jsx'
 import Flag from './components/Flag.jsx'
 import KOSection from './components/KOSection.jsx'
 import NameModal from './components/NameModal.jsx'
+import Predictions from './components/Predictions.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -88,9 +89,19 @@ export default function App() {
   const handleLogin = (u) => {
     setUser(u)
     setDisplayName(u.display_name || u.username)
-    // Show name modal if display_name is not set or equals username (email)
-    const needsName = !u.display_name || u.display_name === u.username
-    if (needsName && !u.is_admin) setShowNameModal(true)
+    // Show modal only if display_name is null (never set)
+    // If username looks like a real name (no @), use it as display_name automatically
+    const needsName = !u.display_name || u.display_name.trim() === ''
+    if (needsName && !u.is_admin) {
+      // If username doesn't look like an email, auto-set display_name to username
+      if (!u.username.includes('@')) {
+        supabase.from('profiles').update({ display_name: u.username }).eq('id', u.id)
+        setUser({ ...u, display_name: u.username })
+        setDisplayName(u.username)
+      } else {
+        setShowNameModal(true)
+      }
+    }
   }
 
   const handleNameSaved = (name) => {
@@ -107,10 +118,11 @@ export default function App() {
   if (!user) return <Login onLogin={handleLogin}/>
 
   const navItems = [
-    {id:'groups',  label:'⚽ Grupos'},
-    {id:'ko',      label:'🏆 Cruces'},
-    {id:'ranking', label:'📊 Ranking'},
-    {id:'settings',label:'⚙️ Config'},
+    {id:'groups',      label:'⚽ Grupos'},
+    {id:'ko',          label:'🏆 Cruces'},
+    {id:'predictions', label:'🔮 Predicciones'},
+    {id:'ranking',     label:'📊 Ranking'},
+    {id:'settings',    label:'⚙️ Config'},
   ]
 
   return (
@@ -196,6 +208,8 @@ export default function App() {
         )}
 
         {tab === 'ko' && <KOSection user={user} points={points}/>}
+
+        {tab === 'predictions' && <Predictions user={user} points={points}/>}
 
         {tab === 'ranking' && <Ranking key={rankingKey} points={points}/>}
 

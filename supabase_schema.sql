@@ -47,7 +47,7 @@ create table config (
   value jsonb not null
 );
 
-insert into config (key, value) values ('points', '{"exact":3,"sign":1,"scorer":2,"minute":1}');
+insert into config (key, value) values ('points', '{"exact":3,"sign":1,"scorer":2,"minute":1,"qualifier":2,"semifinal":3,"finalist":4,"champion":6}');
 insert into profiles (username, display_name, password_hash, is_admin) values ('admin', 'Admin', 'YWRtaW4xMjM=', true);
 
 alter table profiles disable row level security;
@@ -65,3 +65,30 @@ alter table ko_matches disable row level security;
 --   created_at timestamptz default now()
 -- );
 -- ALTER TABLE ko_matches DISABLE ROW LEVEL SECURITY;
+
+-- Predicciones de clasificados y campeón
+-- prediction_type: 'group_qualifier', 'semifinal', 'finalist', 'champion'
+-- value: nombre del equipo
+-- extra: grupo (solo para group_qualifier, ej: 'A')
+create table predictions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade,
+  prediction_type text not null,
+  extra text,           -- grupo para group_qualifier
+  value text not null,  -- equipo predicho
+  created_at timestamptz default now(),
+  unique(user_id, prediction_type, extra, value)
+);
+alter table predictions disable row level security;
+
+-- MIGRACION (si ya tienes la BD):
+-- CREATE TABLE predictions (
+--   id uuid primary key default gen_random_uuid(),
+--   user_id uuid references profiles(id) on delete cascade,
+--   prediction_type text not null,
+--   extra text,
+--   value text not null,
+--   created_at timestamptz default now(),
+--   unique(user_id, prediction_type, extra, value)
+-- );
+-- ALTER TABLE predictions DISABLE ROW LEVEL SECURITY;

@@ -96,10 +96,14 @@ export default function Settings({ points, currentUser, onPointsSaved, onDisplay
             Exacto y ganador se acumulan si se aciertan ambos.
           </p>
           {[
-            ['exact',  '🎯 Resultado exacto'],
-            ['sign',   '✅ Ganador / empate correcto'],
-            ['scorer', '⚽ Primer goleador'],
-            ['minute', '🕐 Tramo del primer gol exacto'],
+            ['exact',     '🎯 Resultado exacto'],
+            ['sign',      '✅ Ganador / empate correcto'],
+            ['scorer',    '⚽ Primer goleador'],
+            ['minute',    '🕐 Tramo del primer gol exacto'],
+            ['qualifier', '🏟 Clasificado de grupo acertado'],
+            ['semifinal', '🏅 Semifinalista acertado'],
+            ['finalist',  '🥈 Finalista acertado'],
+            ['champion',  '👑 Campeón acertado'],
           ].map(([f, l]) => (
             <div key={f} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',
               background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,

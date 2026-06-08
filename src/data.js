@@ -163,7 +163,7 @@ export const GROUPS = {
   ]},
 }
 
-export const DEF_PTS = { exact: 3, sign: 1, scorer: 2, minute: 1 }
+export const DEF_PTS = { exact: 3, sign: 1, scorer: 2, minute: 1, qualifier: 2, semifinal: 3, finalist: 4, champion: 6 }
 
 export const MINUTE_RANGES_GROUP = [
   { value: "1-15",   label: "1' - 15'" },

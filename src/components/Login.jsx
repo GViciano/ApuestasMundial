@@ -14,7 +14,12 @@ export default function Login({ onLogin }) {
     setLoading(true)
     try {
       if (mode === 'login') {
-        const { data, error } = await supabase.from('profiles').select('*').eq('username', username.trim()).eq('password_hash', btoa(password)).single()
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, password_hash, is_admin, created_at')
+          .eq('username', username.trim())
+          .eq('password_hash', btoa(password))
+          .single()
         if (error || !data) { setErr('Usuario o contraseña incorrectos'); setLoading(false); return }
         onLogin(data)
       } else {
@@ -22,7 +27,11 @@ export default function Login({ onLogin }) {
         if (password.length < 4) { setErr('Mínimo 4 caracteres para la contraseña'); setLoading(false); return }
         const { data: ex } = await supabase.from('profiles').select('id').eq('username', username.trim()).single()
         if (ex) { setErr('Ese nombre de usuario ya existe'); setLoading(false); return }
-        const { data, error } = await supabase.from('profiles').insert({ username: username.trim(), display_name: username.trim(), password_hash: btoa(password), is_admin: false }).select().single()
+        const { data, error } = await supabase
+          .from('profiles')
+          .insert({ username: username.trim(), display_name: null, password_hash: btoa(password), is_admin: false })
+          .select('id, username, display_name, password_hash, is_admin, created_at')
+          .single()
         if (error) { setErr('Error: ' + error.message); setLoading(false); return }
         onLogin(data)
       }
