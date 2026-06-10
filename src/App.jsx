@@ -127,6 +127,7 @@ export default function App() {
   }
 
 
+  const handleLogin = (u) => {
     const normalized = { ...u, is_admin: u.is_admin === true || u.is_admin === 'true' }
     setUser(normalized)
     setDisplayName(normalized.display_name || normalized.username)
