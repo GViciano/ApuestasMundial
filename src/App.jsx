@@ -285,7 +285,7 @@ export default function App() {
 
         {tab === 'predictions' && <Predictions user={user} points={points}/>}
 
-        {tab === 'ranking' && <Ranking key={rankingKey} points={points}/>}
+        {tab === 'ranking' && <Ranking key={rankingKey} points={points} currentUser={user}/>}
 
         {tab === 'settings' && (
           <Settings

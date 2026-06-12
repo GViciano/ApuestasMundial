@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
 import { GROUPS, calcPointsBreakdown } from '../data.js'
 
-export default function Ranking({ points }) {
+export default function Ranking({ points, currentUser }) {
   const [scores, setScores] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -118,16 +118,21 @@ export default function Ranking({ points }) {
       : scores.length===0 ? <div style={{color:'var(--text3)',textAlign:'center',padding:40}}>Sin participantes aún</div>
       : (
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {scores.map((s,i) => (
+          {scores.map((s,i) => {
+            const isMe = currentUser && s.username === currentUser.username
+            return (
             <div key={s.username} style={{display:'grid',gridTemplateColumns:'36px 1fr auto',gap:12,alignItems:'center',
-              background:i===0?'rgba(245,166,35,.08)':'var(--bg2)',
-              border:`1px solid ${i===0?'rgba(245,166,35,.3)':'var(--border)'}`,
+              background: isMe ? 'rgba(99,179,237,.12)' : i===0 ? 'rgba(245,166,35,.08)' : 'var(--bg2)',
+              border:`1px solid ${isMe ? 'rgba(99,179,237,.5)' : i===0?'rgba(245,166,35,.3)':'var(--border)'}`,
               borderRadius:10,padding:'12px 16px'}}>
               <div style={{fontFamily:'var(--font-d)',fontSize:24,color:i<3?'var(--accent)':'var(--text3)',textAlign:'center'}}>
                 {i<3?medals[i]:i+1}
               </div>
               <div>
-                <div style={{fontWeight:500,fontSize:14}}>{s.displayName}</div>
+                <div style={{fontWeight:500,fontSize:14,display:'flex',alignItems:'center',gap:6}}>
+                  {s.displayName}
+                  {isMe && <span style={{fontSize:10,background:'rgba(99,179,237,.2)',color:'rgba(99,179,237,1)',padding:'1px 6px',borderRadius:6,fontWeight:600}}>TÚ</span>}
+                </div>
                 <div style={{fontSize:11,color:'var(--text3)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
                   {s.exactN>0 && <span>🎯 {s.exactN}×exacto <span style={{color:'var(--accent)'}}>+{s.exactPts+s.exactN*points.sign}pts</span></span>}
                   {(s.signN-s.exactN)>0 && <span>✅ {s.signN-s.exactN}×ganador <span style={{color:'var(--accent)'}}>+{(s.signN-s.exactN)*points.sign}pts</span></span>}
@@ -142,7 +147,8 @@ export default function Ranking({ points }) {
                 <div style={{fontSize:11,color:'var(--text3)'}}>pts</div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
