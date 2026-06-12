@@ -135,7 +135,6 @@ export default function Ranking({ points }) {
                   {s.minuteN>0 && <span>🕐 {s.minuteN}×minuto <span style={{color:'var(--accent)'}}>+{s.minutePts}pts</span></span>}
                   {s.qualPts > 0 && <span>🏟 <span style={{color:'var(--accent)'}}>+{s.qualPts}pts</span> clasif.</span>}
                   {s.koPredPts > 0 && <span>🏆 <span style={{color:'var(--accent)'}}>+{s.koPredPts}pts</span> pred.</span>}
-                  <span style={{color:'var(--text3)'}}>{s.placed} apuestas</span>
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
