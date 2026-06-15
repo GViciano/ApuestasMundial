@@ -16,18 +16,32 @@ export default function Ranking({ points, currentUser }) {
       ...allGroupMatches,
       ...(koMatches || []).map(m => ({ id: m.id, phase: 'ko' })),
     ]
-    const [{ data: profiles }, { data: bets }, { data: results }, { data: predictions }, { data: realQuals }, { data: predResults }] = await Promise.all([
+    // Fetch all bets with pagination (Supabase default limit is 1000)
+    let allBets = []
+    let from = 0
+    const pageSize = 1000
+    while (true) {
+      const { data, error } = await supabase.from('bets').select('*').range(from, from + pageSize - 1)
+      if (error) throw error
+      if (!data || data.length === 0) break
+      allBets = allBets.concat(data)
+      if (data.length < pageSize) break
+      from += pageSize
+    }
+    const bets = allBets
+    console.log('[Ranking] bets loaded (paginated):', bets.length, 'total')
+    const [{ data: profiles }, { data: results }, { data: predictions }, { data: realQuals }, { data: predResults }] = await Promise.all([
       supabase.from('profiles').select('*').eq('is_admin', false),
-      supabase.from('bets').select('*'),
-      supabase.from('results').select('*'),
-      supabase.from('predictions').select('*'),
+      supabase.from('results').select('*').limit(5000),
+      supabase.from('predictions').select('*').limit(5000),
       supabase.from('group_qualifiers').select('*'),
       supabase.from('prediction_results').select('*'),
     ])
+
+    // Real qualifiers map: { 'A': ['1st', '2nd', '3rd?'] } — sorted by position
     const resultsMap = {}
     results?.forEach(r => { resultsMap[r.match_id] = r })
 
-    // Real qualifiers map: { 'A': ['1st', '2nd', '3rd?'] } — sorted by position
     const realQualMap = {}
     realQuals?.forEach(q => {
       if (!realQualMap[q.group_id]) realQualMap[q.group_id] = [null, null, null]
@@ -120,11 +134,6 @@ export default function Ranking({ points, currentUser }) {
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {scores.map((s,i) => {
             const isMe = currentUser && s.username === currentUser.username
-            const prize = i===0 ? {label:'🍽 Comida free',color:'rgba(72,187,120,1)',bg:'rgba(72,187,120,.12)'}
-                        : i<=2  ? {label:'🍹 Cubata free',color:'rgba(99,179,237,1)',bg:'rgba(99,179,237,.12)'}
-                        : i<=5  ? {label:'😬 Paga comida',color:'rgba(245,166,35,1)',bg:'rgba(245,166,35,.1)'}
-                        : i<=7  ? {label:'💸 Paga comida y cubata',color:'rgba(239,68,68,1)',bg:'rgba(239,68,68,.1)'}
-                        : null
             return (
             <div key={s.username} style={{display:'grid',gridTemplateColumns:'36px 1fr auto',gap:12,alignItems:'center',
               background: isMe ? 'rgba(99,179,237,.12)' : i===0 ? 'rgba(245,166,35,.08)' : 'var(--bg2)',
@@ -134,9 +143,8 @@ export default function Ranking({ points, currentUser }) {
                 {i<3?medals[i]:i+1}
               </div>
               <div>
-                <div style={{fontWeight:500,fontSize:14,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                <div style={{fontWeight:500,fontSize:14,display:'flex',alignItems:'center',gap:6}}>
                   {s.displayName}
-                  {prize && <span style={{fontSize:10,background:prize.bg,color:prize.color,padding:'2px 7px',borderRadius:6,fontWeight:600}}>{prize.label}</span>}
                 </div>
                 <div style={{fontSize:11,color:'var(--text3)',marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
                   {s.exactN>0 && <span>🎯 {s.exactN}×exacto <span style={{color:'var(--accent)'}}>+{s.exactPts+s.exactN*points.sign}pts</span></span>}
