@@ -240,7 +240,7 @@ export const GROUPS = {
       {phase:'group',id:"I1",home:"Francia",away:"Senegal",date:"2026-06-16T21:00"},
       {phase:'group',id:"I2",home:"Irak",away:"Noruega",date:"2026-06-17T00:00"},
       {phase:'group',id:"I3",home:"Francia",away:"Irak",date:"2026-06-22T23:00"},
-      {phase:'group',id:"I4",home:"Noruega",away:"Senegal",date:"2026-06-24T02:00"},
+      {phase:'group',id:"I4",home:"Noruega",away:"Senegal",date:"2026-06-23T02:00"},
       {phase:'group',id:"I5",home:"Noruega",away:"Francia",date:"2026-06-26T21:00"},
       {phase:'group',id:"I6",home:"Senegal",away:"Irak",date:"2026-06-26T21:00"},
     ]
