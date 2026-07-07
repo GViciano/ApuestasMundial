@@ -14,6 +14,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [displayName, setDisplayName] = useState('')
   const [tab, setTab] = useState('groups')
+  const [initialKORound, setInitialKORound] = useState(null)
   const [group, setGroup] = useState('A')
   const [viewMode, setViewMode] = useState('group') // 'group' | 'date'
   const [dateSection, setDateSection] = useState('pending') // 'pending' | 'played'
@@ -140,14 +141,13 @@ export default function App() {
   }
 
 
-  const handleLogin = (u) => {
+  const handleLogin = async (u) => {
     const normalized = { ...u, is_admin: u.is_admin === true || u.is_admin === 'true' }
     setUser(normalized)
     setDisplayName(normalized.display_name || normalized.username)
     const needsName = !normalized.display_name || normalized.display_name.trim() === ''
     if (needsName && !normalized.is_admin) {
       if (!normalized.username.includes('@')) {
-        // Non-email username — auto-set display_name silently
         supabase.from('profiles').update({ display_name: normalized.username }).eq('id', normalized.id)
         setUser({ ...normalized, display_name: normalized.username })
         setDisplayName(normalized.username)
@@ -155,6 +155,39 @@ export default function App() {
         setShowNameModal(true)
       }
     }
+    // Auto-navigate to KO tab at the active round
+    try {
+      const [{ data: koMatches }, { data: koResults }] = await Promise.all([
+        supabase.from('ko_matches').select('id, round, match_date').order('match_date'),
+        supabase.from('results').select('match_id'),
+      ])
+      if (koMatches && koMatches.length > 0) {
+        const playedIds = new Set((koResults || []).map(r => r.match_id))
+        const KO_ORDER = ['R32','R16','QF','SF','3rd','F']
+        // Find first round that has unplayed matches
+        let activeRound = null
+        for (const round of KO_ORDER) {
+          const roundMatches = koMatches.filter(m => m.round === round)
+          if (roundMatches.length > 0 && roundMatches.some(m => !playedIds.has(m.id))) {
+            activeRound = round
+            break
+          }
+        }
+        if (!activeRound) {
+          // All played — show last round
+          for (let i = KO_ORDER.length - 1; i >= 0; i--) {
+            if (koMatches.some(m => m.round === KO_ORDER[i])) {
+              activeRound = KO_ORDER[i]
+              break
+            }
+          }
+        }
+        if (activeRound) {
+          setTab('ko')
+          setInitialKORound(activeRound)
+        }
+      }
+    } catch (e) { /* silently ignore */ }
   }
 
   const handleNameSaved = (name) => {
@@ -328,7 +361,7 @@ export default function App() {
           </>
         )}
 
-        {tab === 'ko' && <KOSection user={user} points={points}/>}
+        {tab === 'ko' && <KOSection user={user} points={points} initialRound={initialKORound}/>}
 
         {tab === 'predictions' && <Predictions user={user} points={points}/>}
 

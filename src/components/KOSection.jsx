@@ -16,14 +16,14 @@ const btn = (variant='primary') => ({
   ...(variant==='secondary' ? {border:'1px solid var(--border2)'} : {}),
 })
 
-export default function KOSection({ user, points }) {
+export default function KOSection({ user, points, initialRound }) {
   const [koMatches, setKoMatches] = useState([])
   const [bets, setBets] = useState({})
   const [allBets, setAllBets] = useState({})
   const [allProfiles, setAllProfiles] = useState({})
   const [results, setResults] = useState({})
   const [loading, setLoading] = useState(true)
-  const [activeRound, setActiveRound] = useState('R32')
+  const [activeRound, setActiveRound] = useState(initialRound || 'R32')
 
   // Admin add match form — separate date/time fields in European format
   const [addRound, setAddRound] = useState('R32')
