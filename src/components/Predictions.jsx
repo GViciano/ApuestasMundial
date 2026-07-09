@@ -582,17 +582,19 @@ function MultiTeamCard({ stageKey, label, desc, count, pts, current, open, savin
   const setAt = (i, val) => { const n = [...selections]; n[i] = val; setSelections(n) }
   const setAdminAt = (i, val) => { const n = [...adminSels]; n[i] = val; setAdminSels(n) }
 
-  const isSaved = current.length === count && current.every(Boolean)
-  const hasReal = real.length === count && real.every(Boolean)
-  const isReady = selections.filter(Boolean).length === count && new Set(selections.filter(Boolean)).size === count
-  const adminReady = adminSels.filter(Boolean).length === count && new Set(adminSels.filter(Boolean)).size === count
+  const isSaved = current.length > 0 && current.some(Boolean)
+  const hasReal = real.length > 0 && real.some(Boolean)
+  const isReady = selections.filter(Boolean).length > 0 && new Set(selections.filter(Boolean)).size === selections.filter(Boolean).length
+  const adminReady = adminSels.filter(Boolean).length > 0
 
+  const realTeams = real.filter(Boolean)
   const earned = !open && hasReal && isSaved
-    ? current.filter(t => real.includes(t)).length * pts : null
+    ? current.filter(t => realTeams.includes(t)).length * pts : null
 
   const saveReal = async () => {
     setAdminSaving(true)
-    await supabase.from('prediction_results').upsert({ prediction_type: stageKey, teams: adminSels.filter(Boolean) }, { onConflict: 'prediction_type' })
+    const toSave = adminSels.filter(Boolean)
+    await supabase.from('prediction_results').upsert({ prediction_type: stageKey, teams: toSave }, { onConflict: 'prediction_type' })
     setAdminSaving(false); setAdminSaved(true)
     setTimeout(() => setAdminSaved(false), 1500)
     onReload()
@@ -614,7 +616,7 @@ function MultiTeamCard({ stageKey, label, desc, count, pts, current, open, savin
             </span>
           )}
           <span style={{ fontSize:12, color:'var(--accent)', background:'rgba(245,166,35,.1)', padding:'2px 8px', borderRadius:20 }}>{pts} pts c/u</span>
-          {hasReal && <span style={{ fontSize:11, color:'var(--green)', background:'rgba(34,197,94,.15)', padding:'2px 8px', borderRadius:20 }}>✓ Oficial</span>}
+          {hasReal && <span style={{ fontSize:11, color:'var(--green)', background:'rgba(34,197,94,.15)', padding:'2px 8px', borderRadius:20 }}>✓ {realTeams.length}/{count} oficial{realTeams.length<count?'es':''}</span>}
           {!hasReal && isSaved && <span style={{ fontSize:11, color:'var(--accent)', background:'rgba(245,166,35,.1)', padding:'2px 8px', borderRadius:20 }}>✓ Guardado</span>}
         </div>
       </div>
