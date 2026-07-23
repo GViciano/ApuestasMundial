@@ -116,8 +116,8 @@ export default function App() {
       {/* Content */}
       <div style={{ flex: 1, padding: '16px', maxWidth: 800, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
-        {/* Jornada selector */}
-        {(tab === 'jornada') && jornadas.length > 0 && (
+        {/* Selector de jornada — solo para partidos jugados */}
+        {tab === 'jornada' && jornadas.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <select value={selectedJornadaId || ''} onChange={e => setSelectedJornadaId(e.target.value)}
               style={{ flex: 1, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text)', fontSize: 14, fontFamily: 'var(--font-b)', cursor: 'pointer' }}>
@@ -133,6 +133,7 @@ export default function App() {
         {tab === 'jornada' && (
           <Jornada
             jornadaId={selectedJornadaId}
+            jornadas={jornadas}
             user={user}
             points={points}
             isAdmin={user.is_admin}

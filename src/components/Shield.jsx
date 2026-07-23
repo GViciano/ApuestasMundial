@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
 
-// Global cache + one-time load
-let cache = null // null = not loaded yet, {} = loaded (possibly empty)
+let cache = null
 let loadPromise = null
 
 function getLogos() {
@@ -17,30 +16,19 @@ function getLogos() {
   return loadPromise
 }
 
-// Invalidate cache when admin saves a logo
 export function invalidateLogoCache() { cache = null; loadPromise = null }
 
 const COLORS = {
-  'Athletic Club':          ['#EE2523','#fff'],
-  'Atlético de Madrid':     ['#CB3524','#fff'],
-  'Celta de Vigo':          ['#78C5D7','#003DA5'],
-  'Deportivo de La Coruña': ['#1B6EC2','#fff'],
-  'Elche':                  ['#007A33','#fff'],
-  'Espanyol':               ['#00529F','#FFCD00'],
-  'FC Barcelona':           ['#A50044','#004D98'],
-  'Getafe':                 ['#005BA1','#fff'],
-  'Las Palmas':             ['#FFCC00','#005BA1'],
-  'Leganés':                ['#1B3D6E','#fff'],
-  'Málaga CF':              ['#1D4B9E','#fff'],
-  'Osasuna':                ['#D6001C','#000'],
-  'Racing de Santander':    ['#007A33','#fff'],
-  'Rayo Vallecano':         ['#fff','#E30613'],
-  'Real Betis':             ['#007A33','#fff'],
-  'Real Madrid':            ['#fff','#00529F'],
-  'Real Sociedad':          ['#1565C0','#fff'],
-  'Sevilla':                ['#D4151C','#fff'],
-  'Valencia':               ['#F7A600','#000'],
-  'Villarreal':             ['#FFD700','#000'],
+  'Athletic Club':['#EE2523','#fff'],'Atlético de Madrid':['#CB3524','#fff'],
+  'Celta de Vigo':['#78C5D7','#003DA5'],'Deportivo de La Coruña':['#1B6EC2','#fff'],
+  'Elche':['#007A33','#fff'],'Espanyol':['#00529F','#FFCD00'],
+  'FC Barcelona':['#A50044','#004D98'],'Getafe':['#005BA1','#fff'],
+  'Las Palmas':['#FFCC00','#005BA1'],'Leganés':['#1B3D6E','#fff'],
+  'Málaga CF':['#1D4B9E','#fff'],'Osasuna':['#D6001C','#000'],
+  'Racing de Santander':['#007A33','#fff'],'Rayo Vallecano':['#fff','#E30613'],
+  'Real Betis':['#007A33','#fff'],'Real Madrid':['#fff','#00529F'],
+  'Real Sociedad':['#1565C0','#fff'],'Sevilla':['#D4151C','#fff'],
+  'Valencia':['#F7A600','#000'],'Villarreal':['#FFD700','#000'],
 }
 const INITIALS = {
   'Athletic Club':'ATH','Atlético de Madrid':'ATM','Celta de Vigo':'CEL',
@@ -62,8 +50,8 @@ function Fallback({ team, size }) {
   )
 }
 
-export default function Shield({ team, size=40 }) {
-  const [svg, setSvg] = useState(undefined) // undefined = loading
+export default function Shield({ team, size = 40 }) {
+  const [svg, setSvg] = useState(undefined)
 
   useEffect(() => {
     let cancelled = false
@@ -73,26 +61,23 @@ export default function Shield({ team, size=40 }) {
     return () => { cancelled = true }
   }, [team])
 
-  // Still loading
-  if (svg === undefined) return <div style={{ width:size, height:size, flexShrink:0 }} />
-
-  // No logo in DB — show fallback
+  if (svg === undefined) return <div style={{ width: size, height: size, flexShrink: 0 }} />
   if (!svg) return <Fallback team={team} size={size} />
 
-  // Render SVG from DB, forced to exact size
-  // We extract the SVG content and wrap it in a controlled container
-  const sized = svg
-    .replace(/<svg([^>]*)width="[^"]*"/g, '<svg$1')
-    .replace(/<svg([^>]*)height="[^"]*"/g, '<svg$1')
-    .replace(/<svg/, `<svg width="${size}" height="${size}" style="display:block;overflow:hidden"`)
-
+  // Convert SVG to data URI and use <img> — most reliable way to resize SVG
+  const encoded = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
   return (
-    <div style={{
-      width: size, height: size, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden',
-    }}
-      dangerouslySetInnerHTML={{ __html: sized }}
+    <img
+      src={encoded}
+      alt={team}
+      title={team}
+      style={{
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        display: 'block',
+        flexShrink: 0,
+      }}
     />
   )
 }

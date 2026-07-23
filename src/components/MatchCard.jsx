@@ -33,7 +33,7 @@ const s = {
 // Hide number input spinners globally
 const noSpinnerStyle = `input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}`
 
-export default function MatchCard({ partido, user, myBet, allBets, allProfiles, points, isAdmin, onSaved }) {
+export default function MatchCard({ partido, jornadaLabel, user, myBet, allBets, allProfiles, points, isAdmin, onSaved }) {
   const hasResult = partido.home_goals !== null && partido.home_goals !== undefined
 
   useEffect(() => {
@@ -161,7 +161,10 @@ export default function MatchCard({ partido, user, myBet, allBets, allProfiles, 
     <div style={s.card(hasResult, open)}>
       {/* Date + status */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{fmtDate(partido.match_date)}</span>
+        <div>
+          {jornadaLabel && <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>{jornadaLabel}</div>}
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{fmtDate(partido.match_date)}</span>
+        </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {tl && open && <span style={{ fontSize: 11, color: 'var(--accent)', background: 'rgba(245,166,35,.1)', padding: '2px 7px', borderRadius: 12 }}>⏱ {tl}</span>}
           {!open && !hasResult && <span style={{ fontSize: 11, color: 'var(--text3)', background: 'var(--bg3)', padding: '2px 7px', borderRadius: 12 }}>Cerrada</span>}
