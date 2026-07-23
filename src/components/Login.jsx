@@ -58,8 +58,8 @@ export default function Login({ onLogin }) {
   return (
     <div style={s.wrap}>
       <div style={s.box}>
-        <div style={s.big}>MUNDIAL</div>
-        <div style={s.sub}>APUESTAS 2026</div>
+        <div style={s.big}>LA LIGA</div>
+        <div style={s.sub}>APUESTAS 26/27</div>
         <div style={s.card}>
           <div style={s.tabs}>
             <button style={s.tab(mode==='login')} onClick={()=>{setMode('login');setErr('')}}>Entrar</button>
