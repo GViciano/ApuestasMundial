@@ -98,11 +98,16 @@ function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
     setAdding(true)
     let match_date = null
     if (newDate && newTime) {
-      // Parse as Madrid time
-      const [y, m, d] = newDate.split('-').map(Number)
-      const [h, min] = newTime.split(':').map(Number)
-      const offsetHours = (m >= 3 && m <= 10) ? 2 : 1
-      match_date = new Date(Date.UTC(y, m - 1, d, h - offsetHours, min)).toISOString()
+      // Parse DD/MM/AA or DD/MM/YYYY
+      const dateParts = newDate.trim().split('/')
+      const timeParts = newTime.trim().split(':')
+      if (dateParts.length === 3 && timeParts.length === 2) {
+        let [d, m, y] = dateParts.map(Number)
+        if (y < 100) y += 2000
+        const [h, min] = timeParts.map(Number)
+        const offsetHours = (m >= 3 && m <= 10) ? 2 : 1
+        match_date = new Date(Date.UTC(y, m - 1, d, h - offsetHours, min)).toISOString()
+      }
     }
     await supabase.from('liga_partidos').insert({ jornada_id: selectedId, home: newHome, away: newAway, match_date })
     setAdding(false)
@@ -118,8 +123,12 @@ function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
 
   const updatePartidoDate = async (id, date, time) => {
     if (!date || !time) return
-    const [y, m, d] = date.split('-').map(Number)
-    const [h, min] = time.split(':').map(Number)
+    const dateParts = date.trim().split('/')
+    const timeParts = time.trim().split(':')
+    if (dateParts.length !== 3 || timeParts.length !== 2) return
+    let [d, m, y] = dateParts.map(Number)
+    if (y < 100) y += 2000
+    const [h, min] = timeParts.map(Number)
     const offsetHours = (m >= 3 && m <= 10) ? 2 : 1
     const match_date = new Date(Date.UTC(y, m - 1, d, h - offsetHours, min)).toISOString()
     await supabase.from('liga_partidos').update({ match_date }).eq('id', id)
@@ -178,6 +187,13 @@ function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
           {/* Add partido */}
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>AÑADIR PARTIDO</div>
+            {/* Jornada destino */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Jornada</div>
+              <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} style={sel}>
+                {jornadas.map(j => <option key={j.id} value={j.id}>{j.label}</option>)}
+              </select>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, marginBottom: 8, alignItems: 'center' }}>
               <select value={newHome} onChange={e => setNewHome(e.target.value)} style={sel}>
                 <option value="">— Local —</option>
@@ -190,8 +206,16 @@ function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={inp} />
-              <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={inp} />
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Fecha (DD/MM/AA)</div>
+                <input type="text" value={newDate} onChange={e => setNewDate(e.target.value)}
+                  placeholder="ej: 20/08/26" style={inp} maxLength={8} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Hora (HH:MM)</div>
+                <input type="text" value={newTime} onChange={e => setNewTime(e.target.value)}
+                  placeholder="ej: 21:00" style={inp} maxLength={5} />
+              </div>
             </div>
             <button onClick={addPartido} disabled={adding || !newHome || !newAway} style={{ ...btn(), width: '100%' }}>
               {adding ? 'Añadiendo…' : '+ Añadir partido'}
@@ -235,8 +259,10 @@ function PartidoRow({ partido, onDelete, onDateChange }) {
       <div style={{ fontSize: 12, color: 'var(--text3)' }}>{currentDate}</div>
       {editing && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginTop: 4 }}>
-          <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ ...inp, fontSize: 12 }} />
-          <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} style={{ ...inp, fontSize: 12 }} />
+          <input type="text" value={editDate} onChange={e => setEditDate(e.target.value)}
+            placeholder="DD/MM/AA" style={{ ...inp, fontSize: 12 }} maxLength={8} />
+          <input type="text" value={editTime} onChange={e => setEditTime(e.target.value)}
+            placeholder="HH:MM" style={{ ...inp, fontSize: 12 }} maxLength={5} />
           <button onClick={() => { onDateChange(partido.id, editDate, editTime); setEditing(false) }}
             style={{ ...btn(), padding: '6px 10px', fontSize: 12 }}>✓</button>
         </div>
