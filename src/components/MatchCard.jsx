@@ -171,8 +171,8 @@ export default function MatchCard({ partido, user, myBet, allBets, allProfiles, 
 
       {/* Teams + score */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ textAlign: 'center' }}>
-          <Shield team={partido.home} size={44} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <Shield team={partido.home} size={48} />
           <div style={s.teamName}>{partido.home}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -186,8 +186,8 @@ export default function MatchCard({ partido, user, myBet, allBets, allProfiles, 
             <span style={{ fontSize: 20, color: 'var(--text3)', fontFamily: 'var(--font-d)', padding: '0 8px' }}>vs</span>
           )}
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <Shield team={partido.away} size={44} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <Shield team={partido.away} size={48} />
           <div style={s.teamName}>{partido.away}</div>
         </div>
       </div>

@@ -79,21 +79,20 @@ export default function Shield({ team, size=40 }) {
   // No logo in DB — show fallback
   if (!svg) return <Fallback team={team} size={size} />
 
-  // Render SVG from DB, resized to exact dimensions
+  // Render SVG from DB, forced to exact size
+  // We extract the SVG content and wrap it in a controlled container
+  const sized = svg
+    .replace(/<svg([^>]*)width="[^"]*"/g, '<svg$1')
+    .replace(/<svg([^>]*)height="[^"]*"/g, '<svg$1')
+    .replace(/<svg/, `<svg width="${size}" height="${size}" style="display:block;overflow:hidden"`)
+
   return (
     <div style={{
-      width: size, height: size, flexShrink: 0, display: 'flex',
-      alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    }}>
-      <div
-        style={{ width: size, height: size }}
-        dangerouslySetInnerHTML={{
-          __html: svg.replace(
-            /<svg([^>]*)>/,
-            `<svg$1 width="${size}" height="${size}" style="display:block;max-width:${size}px;max-height:${size}px">`
-          )
-        }}
-      />
-    </div>
+      width: size, height: size, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
+    }}
+      dangerouslySetInnerHTML={{ __html: sized }}
+    />
   )
 }
