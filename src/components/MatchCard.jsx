@@ -52,7 +52,9 @@ export default function MatchCard({ partido, jornadaLabel, user, myBet, allBets,
   }, [])
 
   const timeOpen = isOpen(partido.match_date)
-  const open = timeOpen && !hasResult
+  const open = timeOpen && !hasResult  // can bet: time not up AND no result
+  // Show other bets when: time is up OR result has been entered
+  const showOtherBets = !timeOpen || hasResult
 
   const [homeG, setHomeG] = useState(myBet?.home_goals ?? '')
   const [awayG, setAwayG] = useState(myBet?.away_goals ?? '')
@@ -123,7 +125,7 @@ export default function MatchCard({ partido, jornadaLabel, user, myBet, allBets,
     onSaved?.()
   }
 
-  const otherBets = !timeOpen ? (allBets || []).filter(b => b.user_id !== user.id) : []
+  const otherBets = showOtherBets ? (allBets || []).filter(b => b.user_id !== user.id) : []
   const earned = calcPoints(myBet, hasResult ? partido : null, points)
   const breakdown = calcPointsBreakdown(myBet, hasResult ? partido : null, points)
   const tl = timeLeft(partido.match_date)
@@ -292,7 +294,7 @@ export default function MatchCard({ partido, jornadaLabel, user, myBet, allBets,
       )}
 
       {/* Other users bets */}
-      {!timeOpen && otherBets.length > 0 && (
+      {showOtherBets && otherBets.length > 0 && (
         <div style={{ marginTop: 10 }}>
           <button onClick={() => setExpanded(e => !e)}
             style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', padding: 0 }}>

@@ -15,12 +15,12 @@ export const DEF_PTS = {
 }
 
 export const MINUTE_RANGES = [
-  { value: '1-15',    label: '1-15 min' },
-  { value: '16-30',   label: '16-30 min' },
-  { value: '31-45+',  label: '31-45+ min' },
-  { value: '46-60',   label: '46-60 min' },
-  { value: '61-75',   label: '61-75 min' },
-  { value: '76-90+',  label: '76-90+ min' },
+  { value: '1-15',    label: "1-15'" },
+  { value: '16-30',   label: "16-30'" },
+  { value: '31-45+',  label: "31-45+'" },
+  { value: '46-60',   label: "46-60'" },
+  { value: '61-75',   label: "61-75'" },
+  { value: '76-90+',  label: "76-90+'" },
 ]
 
 // Madrid timezone parser
