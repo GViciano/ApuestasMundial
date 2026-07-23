@@ -24,7 +24,12 @@ export default function Jornada({ jornadaId, user, points, isAdmin, onJornadaUpd
         supabase.from('liga_partidos').select('*').eq('jornada_id', jornadaId).order('match_date'),
       ])
       setJornada(jData)
-      setPartidos(pData || [])
+      // Pendientes primero (por fecha asc), jugados al final (por fecha desc)
+      const pending = (pData || []).filter(p => p.home_goals === null || p.home_goals === undefined)
+      const played = (pData || []).filter(p => p.home_goals !== null && p.home_goals !== undefined)
+      pending.sort((a,b) => new Date(a.match_date) - new Date(b.match_date))
+      played.sort((a,b) => new Date(b.match_date) - new Date(a.match_date))
+      setPartidos([...pending, ...played])
 
       if (!pData?.length) { setLoading(false); return }
 

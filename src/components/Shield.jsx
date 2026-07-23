@@ -1,20 +1,25 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
 
-// Cache global para no repetir peticiones
-const logoCache = {}
-let cacheLoaded = false
-const listeners = []
+// Global cache + one-time load
+let cache = null // null = not loaded yet, {} = loaded (possibly empty)
+let loadPromise = null
 
-async function ensureCache() {
-  if (cacheLoaded) return
-  cacheLoaded = true
-  const { data } = await supabase.from('liga_team_logos').select('team, svg')
-  if (data) data.forEach(r => { logoCache[r.team] = r.svg })
-  listeners.forEach(fn => fn())
+function getLogos() {
+  if (cache !== null) return Promise.resolve(cache)
+  if (!loadPromise) {
+    loadPromise = supabase.from('liga_team_logos').select('team, svg').then(({ data }) => {
+      cache = {}
+      if (data) data.forEach(r => { cache[r.team] = r.svg })
+      return cache
+    })
+  }
+  return loadPromise
 }
 
-// Fallback con colores oficiales
+// Invalidate cache when admin saves a logo
+export function invalidateLogoCache() { cache = null; loadPromise = null }
+
 const COLORS = {
   'Athletic Club':          ['#EE2523','#fff'],
   'Atlético de Madrid':     ['#CB3524','#fff'],
@@ -50,7 +55,7 @@ function Fallback({ team, size }) {
   const [bg, fg] = COLORS[team] || ['#555','#fff']
   const initials = INITIALS[team] || team.slice(0,3).toUpperCase()
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" style={{ flexShrink:0 }}>
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{ flexShrink:0, display:'block' }}>
       <path d="M50 4 L90 20 L90 56 Q90 80 50 96 Q10 80 10 56 L10 20 Z" fill={bg} stroke={fg} strokeWidth="3"/>
       <text x="50" y="63" textAnchor="middle" fontSize="22" fontWeight="bold" fill={fg} fontFamily="Arial,sans-serif" letterSpacing="-0.5">{initials}</text>
     </svg>
@@ -58,29 +63,37 @@ function Fallback({ team, size }) {
 }
 
 export default function Shield({ team, size=40 }) {
-  const [svg, setSvg] = useState(logoCache[team] || null)
+  const [svg, setSvg] = useState(undefined) // undefined = loading
 
   useEffect(() => {
-    if (logoCache[team] !== undefined) {
-      setSvg(logoCache[team])
-      return
-    }
-    // Register listener for when cache loads
-    const onLoad = () => setSvg(logoCache[team] || null)
-    listeners.push(onLoad)
-    ensureCache()
-    return () => {
-      const i = listeners.indexOf(onLoad)
-      if (i >= 0) listeners.splice(i, 1)
-    }
+    let cancelled = false
+    getLogos().then(logos => {
+      if (!cancelled) setSvg(logos[team] || null)
+    })
+    return () => { cancelled = true }
   }, [team])
 
+  // Still loading
+  if (svg === undefined) return <div style={{ width:size, height:size, flexShrink:0 }} />
+
+  // No logo in DB — show fallback
   if (!svg) return <Fallback team={team} size={size} />
 
+  // Render SVG from DB, resized to exact dimensions
   return (
-    <div
-      style={{ width:size, height:size, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <div style={{
+      width: size, height: size, flexShrink: 0, display: 'flex',
+      alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    }}>
+      <div
+        style={{ width: size, height: size }}
+        dangerouslySetInnerHTML={{
+          __html: svg.replace(
+            /<svg([^>]*)>/,
+            `<svg$1 width="${size}" height="${size}" style="display:block;max-width:${size}px;max-height:${size}px">`
+          )
+        }}
+      />
+    </div>
   )
 }

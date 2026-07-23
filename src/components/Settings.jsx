@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
 import { LALIGA_TEAMS } from '../data.js'
+import { invalidateLogoCache } from './Shield.jsx'
 
 const btn = (color = 'var(--accent)') => ({
   padding: '8px 14px', borderRadius: 8, border: 'none', background: color, color: color === 'var(--accent)' ? '#000' : '#fff',
@@ -16,9 +17,18 @@ const sel = {
 
 export default function Settings({ points, currentUser, jornadas, activeJornadaId, onPointsSaved, onJornadaUpdated, onDisplayNameChanged }) {
   const [section, setSection] = useState('jornadas')
+  const [teams, setTeams] = useState(LALIGA_TEAMS)
+
+  useEffect(() => { loadTeams() }, [])
+
+  const loadTeams = async () => {
+    const { data } = await supabase.from('liga_teams').select('name').order('name')
+    if (data && data.length > 0) setTeams(data.map(t => t.name))
+  }
 
   const sections = [
     { id: 'jornadas', label: '📋 Jornadas y partidos' },
+    { id: 'equipos', label: '🏟 Equipos' },
     { id: 'players', label: '👥 Jugadores' },
     { id: 'logos', label: '🛡 Escudos' },
     { id: 'config', label: '⚙️ Config' },
@@ -35,16 +45,68 @@ export default function Settings({ points, currentUser, jornadas, activeJornadaI
         ))}
       </div>
 
-      {section === 'jornadas' && <JornadasSection jornadas={jornadas} activeJornadaId={activeJornadaId} onUpdated={onJornadaUpdated} />}
-      {section === 'players' && <PlayersSection />}
-      {section === 'logos' && <LogosSection />}
+      {section === 'jornadas' && <JornadasSection jornadas={jornadas} activeJornadaId={activeJornadaId} onUpdated={onJornadaUpdated} teams={teams} />}
+      {section === 'equipos' && <EquiposSection teams={teams} onUpdated={loadTeams} />}
+      {section === 'players' && <PlayersSection teams={teams} />}
+      {section === 'logos' && <LogosSection teams={teams} />}
       {section === 'config' && <ConfigSection points={points} onPointsSaved={onPointsSaved} currentUser={currentUser} onDisplayNameChanged={onDisplayNameChanged} />}
     </div>
   )
 }
 
+// ── Equipos Section ───────────────────────────────────────────────────────────
+function EquiposSection({ teams, onUpdated }) {
+  const [newName, setNewName] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const addTeam = async () => {
+    if (!newName.trim()) return
+    setAdding(true)
+    await supabase.from('liga_teams').insert({ name: newName.trim() })
+    setNewName('')
+    setAdding(false)
+    onUpdated()
+  }
+
+  const deleteTeam = async (name) => {
+    if (!confirm(`¿Eliminar ${name}? Se eliminarán también sus jugadores y escudo.`)) return
+    await supabase.from('liga_teams').delete().eq('name', name)
+    await supabase.from('liga_players').delete().eq('team', name)
+    await supabase.from('liga_team_logos').delete().eq('team', name)
+    onUpdated()
+  }
+
+  return (
+    <div>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, fontWeight: 600 }}>AÑADIR EQUIPO</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nombre del equipo"
+            style={{ ...inp, flex: 1 }} onKeyDown={e => e.key === 'Enter' && addTeam()} />
+          <button onClick={addTeam} disabled={adding || !newName.trim()} style={btn()}>
+            {adding ? '…' : '+ Añadir'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{teams.length} equipos</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {teams.map(t => (
+          <div key={t} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+            <span style={{ fontSize: 14 }}>{t}</span>
+            <button onClick={() => deleteTeam(t)}
+              style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
+              🗑
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Jornadas Section ──────────────────────────────────────────────────────────
-function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
+function JornadasSection({ jornadas, activeJornadaId, onUpdated, teams }) {
   const [selectedId, setSelectedId] = useState(null)
   const [partidos, setPartidos] = useState([])
   const [newHome, setNewHome] = useState('')
@@ -199,12 +261,12 @@ function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, marginBottom: 8, alignItems: 'center' }}>
               <select value={newHome} onChange={e => setNewHome(e.target.value)} style={sel}>
                 <option value="">— Local —</option>
-                {LALIGA_TEAMS.filter(t => t !== newAway).map(t => <option key={t} value={t}>{t}</option>)}
+                {teams.filter(t => t !== newAway).map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <span style={{ color: 'var(--text3)', textAlign: 'center' }}>vs</span>
               <select value={newAway} onChange={e => setNewAway(e.target.value)} style={sel}>
                 <option value="">— Visitante —</option>
-                {LALIGA_TEAMS.filter(t => t !== newHome).map(t => <option key={t} value={t}>{t}</option>)}
+                {teams.filter(t => t !== newHome).map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -274,8 +336,8 @@ function PartidoRow({ partido, onDelete, onDateChange }) {
 }
 
 // ── Players Section ───────────────────────────────────────────────────────────
-function PlayersSection() {
-  const [selectedTeam, setSelectedTeam] = useState(LALIGA_TEAMS[0])
+function PlayersSection({ teams }) {
+  const [selectedTeam, setSelectedTeam] = useState(teams[0] || '')
   const [players, setPlayers] = useState([])
   const [newName, setNewName] = useState('')
   const [adding, setAdding] = useState(false)
@@ -331,7 +393,7 @@ function PlayersSection() {
   return (
     <div>
       <select value={selectedTeam} onChange={e => { setSelectedTeam(e.target.value); setBulkMsg('') }} style={{ ...sel, marginBottom: 14 }}>
-        {LALIGA_TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+        {teams.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
 
       {/* Add single */}
@@ -390,8 +452,8 @@ function PlayersSection() {
 }
 
 // ── Logos Section ─────────────────────────────────────────────────────────────
-function LogosSection() {
-  const [selectedTeam, setSelectedTeam] = useState(LALIGA_TEAMS[0])
+function LogosSection({ teams }) {
+  const [selectedTeam, setSelectedTeam] = useState(teams[0] || '')
   const [logos, setLogos] = useState({}) // team -> svg string
   const [svgText, setSvgText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -438,6 +500,7 @@ function LogosSection() {
     setSaving(true)
     await supabase.from('liga_team_logos').upsert({ team: selectedTeam, svg: svgText.trim(), updated_at: new Date().toISOString() }, { onConflict: 'team' })
     setLogos(prev => ({ ...prev, [selectedTeam]: svgText.trim() }))
+    invalidateLogoCache()
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 1500)
   }
@@ -447,6 +510,7 @@ function LogosSection() {
     setDeleting(true)
     await supabase.from('liga_team_logos').delete().eq('team', selectedTeam)
     setLogos(prev => { const n = { ...prev }; delete n[selectedTeam]; return n })
+    invalidateLogoCache()
     setSvgText('')
     setDeleting(false)
   }
@@ -461,7 +525,7 @@ function LogosSection() {
 
       <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}
         style={{ ...sel, marginBottom: 14 }}>
-        {LALIGA_TEAMS.map(t => (
+        {teams.map(t => (
           <option key={t} value={t}>{logos[t] ? '✓ ' : '○ '}{t}</option>
         ))}
       </select>
@@ -521,7 +585,7 @@ function LogosSection() {
 
       {/* Summary */}
       <div style={{ marginTop: 20, fontSize: 12, color: 'var(--text3)' }}>
-        {Object.keys(logos).length} / {LALIGA_TEAMS.length} escudos subidos
+        {Object.keys(logos).length} / {teams.length} escudos subidos
       </div>
     </div>
   )

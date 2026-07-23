@@ -1,25 +1,9 @@
-// LaLiga EA Sports 2026/27
+// LaLiga EA Sports 2026/27 — fallback si la BD no está disponible
 export const LALIGA_TEAMS = [
-  'Athletic Club',
-  'Atlético de Madrid',
-  'Celta de Vigo',
-  'Deportivo de La Coruña',
-  'Elche',
-  'Espanyol',
-  'FC Barcelona',
-  'Getafe',
-  'Las Palmas',
-  'Leganés',
-  'Málaga CF',
-  'Osasuna',
-  'Racing de Santander',
-  'Rayo Vallecano',
-  'Real Betis',
-  'Real Madrid',
-  'Real Sociedad',
-  'Sevilla',
-  'Valencia',
-  'Villarreal',
+  'Athletic Club','Atlético de Madrid','Celta de Vigo','Deportivo de La Coruña',
+  'Elche','Espanyol','FC Barcelona','Getafe','Las Palmas','Leganés','Málaga CF',
+  'Osasuna','Racing de Santander','Rayo Vallecano','Real Betis','Real Madrid',
+  'Real Sociedad','Sevilla','Valencia','Villarreal',
 ]
 
 export const DEF_PTS = {
