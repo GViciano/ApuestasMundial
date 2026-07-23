@@ -20,6 +20,7 @@ export default function Settings({ points, currentUser, jornadas, activeJornadaI
   const sections = [
     { id: 'jornadas', label: '📋 Jornadas y partidos' },
     { id: 'players', label: '👥 Jugadores' },
+    { id: 'logos', label: '🛡 Escudos' },
     { id: 'config', label: '⚙️ Config' },
   ]
 
@@ -36,6 +37,7 @@ export default function Settings({ points, currentUser, jornadas, activeJornadaI
 
       {section === 'jornadas' && <JornadasSection jornadas={jornadas} activeJornadaId={activeJornadaId} onUpdated={onJornadaUpdated} />}
       {section === 'players' && <PlayersSection />}
+      {section === 'logos' && <LogosSection />}
       {section === 'config' && <ConfigSection points={points} onPointsSaved={onPointsSaved} currentUser={currentUser} onDisplayNameChanged={onDisplayNameChanged} />}
     </div>
   )
@@ -384,6 +386,144 @@ function PlayersSection() {
           </div>
         )
       }</div>
+  )
+}
+
+// ── Logos Section ─────────────────────────────────────────────────────────────
+function LogosSection() {
+  const [selectedTeam, setSelectedTeam] = useState(LALIGA_TEAMS[0])
+  const [logos, setLogos] = useState({}) // team -> svg string
+  const [svgText, setSvgText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => { loadLogos() }, [])
+
+  const loadLogos = async () => {
+    setLoading(true)
+    const { data } = await supabase.from('liga_team_logos').select('team, svg')
+    if (data) {
+      const map = {}
+      data.forEach(r => { map[r.team] = r.svg })
+      setLogos(map)
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    setSvgText(logos[selectedTeam] || '')
+    setSaved(false)
+  }, [selectedTeam, logos])
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const content = ev.target.result
+      if (content.includes('<svg') || content.includes('<?xml')) {
+        setSvgText(content)
+      } else {
+        alert('El archivo no parece un SVG válido')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const save = async () => {
+    if (!svgText.trim()) return
+    setSaving(true)
+    await supabase.from('liga_team_logos').upsert({ team: selectedTeam, svg: svgText.trim(), updated_at: new Date().toISOString() }, { onConflict: 'team' })
+    setLogos(prev => ({ ...prev, [selectedTeam]: svgText.trim() }))
+    setSaving(false); setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  const deleteLogo = async () => {
+    if (!confirm(`¿Borrar escudo de ${selectedTeam}?`)) return
+    setDeleting(true)
+    await supabase.from('liga_team_logos').delete().eq('team', selectedTeam)
+    setLogos(prev => { const n = { ...prev }; delete n[selectedTeam]; return n })
+    setSvgText('')
+    setDeleting(false)
+  }
+
+  const hasLogo = !!logos[selectedTeam]
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 14 }}>
+        Sube el SVG oficial de cada equipo. Se guarda en la base de datos y se muestra en los partidos.
+      </p>
+
+      <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}
+        style={{ ...sel, marginBottom: 14 }}>
+        {LALIGA_TEAMS.map(t => (
+          <option key={t} value={t}>{logos[t] ? '✓ ' : '○ '}{t}</option>
+        ))}
+      </select>
+
+      {/* Preview */}
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ width: 64, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {hasLogo
+            ? <div dangerouslySetInnerHTML={{ __html: logos[selectedTeam] }} style={{ width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+            : <div style={{ fontSize: 36 }}>⚽</div>
+          }
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{selectedTeam}</div>
+          <div style={{ fontSize: 12, color: hasLogo ? 'var(--green)' : 'var(--text3)', marginTop: 2 }}>
+            {loading ? 'Cargando…' : hasLogo ? '✓ Escudo cargado' : 'Sin escudo'}
+          </div>
+        </div>
+      </div>
+
+      {/* Upload file */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>SUBIR ARCHIVO SVG</div>
+        <label style={{ display: 'block', padding: '10px 14px', borderRadius: 8, border: '2px dashed var(--border)', textAlign: 'center', cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
+          📁 Seleccionar archivo .svg
+          <input type="file" accept=".svg,image/svg+xml" onChange={handleFile} style={{ display: 'none' }} />
+        </label>
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, marginBottom: 0 }}>
+          O pega el código SVG directamente abajo
+        </p>
+      </div>
+
+      {/* SVG text */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>CÓDIGO SVG</div>
+        <textarea
+          value={svgText}
+          onChange={e => setSvgText(e.target.value)}
+          placeholder={'<svg xmlns="http://www.w3.org/2000/svg" viewBox="...">\n  ...\n</svg>'}
+          rows={6}
+          style={{ ...inp, width: '100%', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 12 }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={save} disabled={saving || !svgText.trim()}
+          style={{ ...btn(), flex: 1 }}>
+          {saving ? 'Guardando…' : saved ? '✓ Guardado' : '💾 Guardar escudo'}
+        </button>
+        {hasLogo && (
+          <button onClick={deleteLogo} disabled={deleting}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)', color: 'var(--red)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-b)' }}>
+            🗑
+          </button>
+        )}
+      </div>
+
+      {/* Summary */}
+      <div style={{ marginTop: 20, fontSize: 12, color: 'var(--text3)' }}>
+        {Object.keys(logos).length} / {LALIGA_TEAMS.length} escudos subidos
+      </div>
+    </div>
   )
 }
 
