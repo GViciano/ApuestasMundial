@@ -1,159 +1,440 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.js'
+import { LALIGA_TEAMS } from '../data.js'
 
-const inp = {background:'var(--bg4)',border:'1px solid var(--border)',borderRadius:8,padding:'9px 12px',color:'var(--text)',fontSize:14,width:'100%',fontFamily:'var(--font-b)'}
-const btnP = {background:'var(--accent)',color:'#0a0f1e',fontWeight:500,fontSize:14,padding:'9px 18px',borderRadius:8,cursor:'pointer',border:'none'}
-const btnS = {background:'var(--bg4)',color:'var(--text)',fontSize:14,padding:'9px 18px',borderRadius:8,cursor:'pointer',border:'1px solid var(--border2)'}
-const btnD = {background:'var(--red)',color:'#fff',fontSize:13,padding:'5px 12px',borderRadius:8,cursor:'pointer',border:'none'}
+const btn = (color = 'var(--accent)') => ({
+  padding: '8px 14px', borderRadius: 8, border: 'none', background: color, color: color === 'var(--accent)' ? '#000' : '#fff',
+  fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-b)',
+})
+const inp = {
+  padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)',
+  background: 'var(--bg3)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-b)',
+}
+const sel = {
+  ...inp, width: '100%',
+}
 
-export default function Settings({ points, currentUser, onPointsSaved, onDisplayNameChanged, onOpenNameModal }) {
-  const [pts, setPts] = useState(points)
-  const [savedPts, setSavedPts] = useState(false)
-  const [users, setUsers] = useState([])
-  const [newU, setNewU] = useState('')
-  const [newP, setNewP] = useState('')
-  const [msg, setMsg] = useState('')
-  const [msgOk, setMsgOk] = useState(true)
-  const [currentDN, setCurrentDN] = useState('Cargando…')
+export default function Settings({ points, currentUser, jornadas, activeJornadaId, onPointsSaved, onJornadaUpdated, onDisplayNameChanged }) {
+  const [section, setSection] = useState('jornadas')
 
-  useEffect(() => {
-    // Always fetch fresh from DB
-    supabase.from('profiles').select('display_name,username').eq('id', currentUser.id).single()
-      .then(({ data }) => {
-        if (data) {
-          const name = (data.display_name && data.display_name !== data.username)
-            ? data.display_name : null
-          setCurrentDN(name || '(sin nombre)')
-        }
-      })
-    if (currentUser.is_admin) loadUsers()
-  }, [])
-
-  const loadUsers = async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('is_admin', false).order('username')
-    setUsers(data || [])
-  }
-
-  const savePoints = async () => {
-    await supabase.from('config').upsert({ key: 'points', value: pts })
-    setSavedPts(true)
-    setTimeout(() => setSavedPts(false), 1500)
-    onPointsSaved(pts)
-  }
-
-  const addUser = async () => {
-    if (newU.trim().length < 3) return showMsg('Mínimo 3 caracteres', false)
-    if (newP.length < 4) return showMsg('Mínimo 4 caracteres para la contraseña', false)
-    const { data: ex } = await supabase.from('profiles').select('id').eq('username', newU.trim()).single()
-    if (ex) return showMsg('Ese usuario ya existe', false)
-    await supabase.from('profiles').insert({ username: newU.trim(), display_name: newU.trim(), password_hash: btoa(newP), is_admin: false })
-    setNewU(''); setNewP('')
-    showMsg(`✓ Usuario "${newU.trim()}" creado`, true)
-    loadUsers()
-  }
-
-  const deleteUser = async (id, username) => {
-    if (!confirm(`¿Eliminar a ${username}?`)) return
-    await supabase.from('bets').delete().eq('user_id', id)
-    await supabase.from('profiles').delete().eq('id', id)
-    showMsg(`"${username}" eliminado`, true)
-    loadUsers()
-  }
-
-  const showMsg = (txt, ok) => { setMsg(txt); setMsgOk(ok) }
-
-  const SH = ({children}) => (
-    <h3 style={{fontSize:13,color:'var(--text2)',textTransform:'uppercase',letterSpacing:.8,marginBottom:12}}>{children}</h3>
-  )
-  const Section = ({children, last}) => (
-    <div style={{marginBottom:last?0:28,paddingBottom:last?0:28,borderBottom:last?'none':'1px solid var(--border)'}}>{children}</div>
-  )
+  const sections = [
+    { id: 'jornadas', label: '📋 Jornadas y partidos' },
+    { id: 'players', label: '👥 Jugadores' },
+    { id: 'config', label: '⚙️ Config' },
+  ]
 
   return (
     <div>
-      <h2 style={{fontFamily:'var(--font-d)',fontSize:28,letterSpacing:1,marginBottom:20}}>CONFIGURACIÓN</h2>
-
-      {/* Display name */}
-      <Section>
-        <SH>Tu nombre visible</SH>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-          background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 16px'}}>
-          <div>
-            <div style={{fontSize:13,color:'var(--text3)',marginBottom:2}}>Nombre actual</div>
-            <div style={{fontSize:15,fontWeight:500,color: currentDN==='(sin nombre)'?'var(--text3)':'var(--text)'}}>
-              {currentDN}
-            </div>
-          </div>
-          <button style={btnP} onClick={onOpenNameModal}>Cambiar</button>
-        </div>
-      </Section>
-
-      {/* Points — admin only */}
-      {currentUser.is_admin && (
-        <Section>
-          <SH>Puntos por acierto</SH>
-          <p style={{fontSize:12,color:'var(--text3)',marginBottom:12,fontStyle:'italic'}}>
-            Exacto y ganador se acumulan si se aciertan ambos.
-          </p>
-          {[
-            ['exact',     '🎯 Resultado exacto'],
-            ['sign',      '✅ Ganador / empate correcto'],
-            ['scorer',    '⚽ Primer goleador'],
-            ['minute',    '🕐 Tramo del primer gol exacto'],
-            ['qualifier', '🏟 Clasificado de grupo acertado'],
-            ['semifinal', '🏅 Semifinalista acertado'],
-            ['finalist',  '🥈 Finalista acertado'],
-            ['champion',  '👑 Campeón acertado'],
-          ].map(([f, l]) => (
-            <div key={f} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',
-              background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,
-              padding:'14px 16px',marginBottom:8,fontSize:14}}>
-              <span>{l}</span>
-              <input type="number" min="0" max="20" value={pts[f]}
-                onChange={e => setPts({...pts,[f]:+e.target.value})}
-                style={{width:60,textAlign:'center',background:'var(--bg4)',border:'1px solid var(--border2)',
-                  borderRadius:8,padding:8,color:'var(--accent)',fontSize:20,fontFamily:'var(--font-d)'}}/>
-            </div>
-          ))}
-          <button style={savedPts?{...btnS,color:'var(--green)'}:btnP} onClick={savePoints}>
-            {savedPts?'✓ Guardado':'Guardar puntuación'}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {sections.map(s => (
+          <button key={s.id} onClick={() => setSection(s.id)}
+            style={{ padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font-b)', fontWeight: 500, fontSize: 13, border: `1px solid ${section === s.id ? 'var(--accent)' : 'var(--border)'}`, background: section === s.id ? 'rgba(245,166,35,.1)' : 'var(--bg2)', color: section === s.id ? 'var(--accent)' : 'var(--text2)' }}>
+            {s.label}
           </button>
-        </Section>
-      )}
+        ))}
+      </div>
 
-      {/* User management — admin only */}
-      {currentUser.is_admin && (
-        <Section last>
-          <SH>Gestión de usuarios</SH>
-          <div style={{marginBottom:12}}>
-            {users.length===0 && <p style={{fontSize:13,color:'var(--text3)',marginBottom:8}}>Sin usuarios aún</p>}
-            {users.map(u => (
-              <div key={u.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:10,
-                padding:'10px 14px',marginBottom:6,fontSize:14}}>
-                <div>
-                  <span>👤 {u.username}</span>
-                  {u.display_name && u.display_name!==u.username && (
-                    <span style={{color:'var(--text3)',fontSize:12,marginLeft:8}}>({u.display_name})</span>
-                  )}
-                </div>
-                <button style={btnD} onClick={()=>deleteUser(u.id,u.username)}>Eliminar</button>
+      {section === 'jornadas' && <JornadasSection jornadas={jornadas} activeJornadaId={activeJornadaId} onUpdated={onJornadaUpdated} />}
+      {section === 'players' && <PlayersSection />}
+      {section === 'config' && <ConfigSection points={points} onPointsSaved={onPointsSaved} currentUser={currentUser} onDisplayNameChanged={onDisplayNameChanged} />}
+    </div>
+  )
+}
+
+// ── Jornadas Section ──────────────────────────────────────────────────────────
+function JornadasSection({ jornadas, activeJornadaId, onUpdated }) {
+  const [selectedId, setSelectedId] = useState(null)
+  const [partidos, setPartidos] = useState([])
+  const [newHome, setNewHome] = useState('')
+  const [newAway, setNewAway] = useState('')
+  const [newDate, setNewDate] = useState('')
+  const [newTime, setNewTime] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [newJLabel, setNewJLabel] = useState('')
+  const [creatingJ, setCreatingJ] = useState(false)
+
+  useEffect(() => {
+    if (jornadas.length > 0 && !selectedId) {
+      const active = jornadas.find(j => j.active) || jornadas[jornadas.length - 1]
+      setSelectedId(active?.id)
+    }
+  }, [jornadas])
+
+  useEffect(() => {
+    if (selectedId) loadPartidos()
+  }, [selectedId])
+
+  const loadPartidos = async () => {
+    const { data } = await supabase.from('liga_partidos').select('*').eq('jornada_id', selectedId).order('match_date')
+    setPartidos(data || [])
+  }
+
+  const createJornada = async () => {
+    if (!newJLabel.trim()) return
+    setCreatingJ(true)
+    const num = jornadas.length + 1
+    const { data } = await supabase.from('liga_jornadas').insert({ numero: num, label: newJLabel.trim(), active: false }).select().single()
+    setCreatingJ(false)
+    setNewJLabel('')
+    onUpdated()
+    if (data) setSelectedId(data.id)
+  }
+
+  const setActive = async (id) => {
+    await supabase.from('liga_jornadas').update({ active: false }).neq('id', 'none')
+    await supabase.from('liga_jornadas').update({ active: true }).eq('id', id)
+    onUpdated()
+  }
+
+  const deleteJornada = async (id) => {
+    if (!confirm('¿Borrar jornada y todos sus partidos y apuestas?')) return
+    await supabase.from('liga_jornadas').delete().eq('id', id)
+    if (selectedId === id) setSelectedId(jornadas.find(j => j.id !== id)?.id || null)
+    onUpdated()
+  }
+
+  const addPartido = async () => {
+    if (!newHome || !newAway || newHome === newAway) return
+    setAdding(true)
+    let match_date = null
+    if (newDate && newTime) {
+      // Parse as Madrid time
+      const [y, m, d] = newDate.split('-').map(Number)
+      const [h, min] = newTime.split(':').map(Number)
+      const offsetHours = (m >= 3 && m <= 10) ? 2 : 1
+      match_date = new Date(Date.UTC(y, m - 1, d, h - offsetHours, min)).toISOString()
+    }
+    await supabase.from('liga_partidos').insert({ jornada_id: selectedId, home: newHome, away: newAway, match_date })
+    setAdding(false)
+    setNewHome(''); setNewAway(''); setNewDate(''); setNewTime('')
+    loadPartidos()
+  }
+
+  const deletePartido = async (id) => {
+    if (!confirm('¿Borrar partido y sus apuestas?')) return
+    await supabase.from('liga_partidos').delete().eq('id', id)
+    loadPartidos()
+  }
+
+  const updatePartidoDate = async (id, date, time) => {
+    if (!date || !time) return
+    const [y, m, d] = date.split('-').map(Number)
+    const [h, min] = time.split(':').map(Number)
+    const offsetHours = (m >= 3 && m <= 10) ? 2 : 1
+    const match_date = new Date(Date.UTC(y, m - 1, d, h - offsetHours, min)).toISOString()
+    await supabase.from('liga_partidos').update({ match_date }).eq('id', id)
+    loadPartidos()
+  }
+
+  const selectedJornada = jornadas.find(j => j.id === selectedId)
+
+  return (
+    <div>
+      {/* Jornada selector */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} style={{ ...sel, flex: 1 }}>
+          {jornadas.map(j => <option key={j.id} value={j.id}>{j.label}{j.active ? ' ★ Activa' : ''}</option>)}
+        </select>
+        {selectedId && selectedId !== activeJornadaId && (
+          <button onClick={() => setActive(selectedId)} style={{ ...btn(), whiteSpace: 'nowrap' }}>★ Activar</button>
+        )}
+        {selectedId && selectedId === activeJornadaId && (
+          <span style={{ fontSize: 12, color: 'var(--green)', whiteSpace: 'nowrap' }}>★ Activa</span>
+        )}
+        {selectedId && (
+          <button onClick={() => deleteJornada(selectedId)} style={{ ...btn('rgba(239,68,68,.8)'), padding: '8px 10px' }}>🗑</button>
+        )}
+      </div>
+
+      {/* Create jornada */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, fontWeight: 600 }}>NUEVA JORNADA</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={newJLabel} onChange={e => setNewJLabel(e.target.value)} placeholder="Ej: Jornada 1"
+            style={{ ...inp, flex: 1 }} onKeyDown={e => e.key === 'Enter' && createJornada()} />
+          <button onClick={createJornada} disabled={creatingJ || !newJLabel.trim()} style={btn()}>
+            {creatingJ ? '…' : '+ Crear'}
+          </button>
+        </div>
+      </div>
+
+      {/* Partidos */}
+      {selectedId && (
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>
+            Partidos — {selectedJornada?.label}
+          </div>
+
+          {/* Existing partidos */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {partidos.map(p => (
+              <PartidoRow key={p.id} partido={p} onDelete={deletePartido} onDateChange={updatePartidoDate} />
+            ))}
+            {partidos.length === 0 && (
+              <div style={{ color: 'var(--text3)', fontSize: 13, padding: 12 }}>No hay partidos. Añade uno abajo.</div>
+            )}
+          </div>
+
+          {/* Add partido */}
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10, fontWeight: 600 }}>AÑADIR PARTIDO</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+              <select value={newHome} onChange={e => setNewHome(e.target.value)} style={sel}>
+                <option value="">— Local —</option>
+                {LALIGA_TEAMS.filter(t => t !== newAway).map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <span style={{ color: 'var(--text3)', textAlign: 'center' }}>vs</span>
+              <select value={newAway} onChange={e => setNewAway(e.target.value)} style={sel}>
+                <option value="">— Visitante —</option>
+                {LALIGA_TEAMS.filter(t => t !== newHome).map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={inp} />
+              <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={inp} />
+            </div>
+            <button onClick={addPartido} disabled={adding || !newHome || !newAway} style={{ ...btn(), width: '100%' }}>
+              {adding ? 'Añadiendo…' : '+ Añadir partido'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PartidoRow({ partido, onDelete, onDateChange }) {
+  const [editDate, setEditDate] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [editing, setEditing] = useState(false)
+
+  const currentDate = partido.match_date
+    ? new Date(partido.match_date).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })
+    : 'Sin fecha'
+
+  const hasResult = partido.home_goals !== null
+
+  return (
+    <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 14, fontWeight: 500 }}>
+          {partido.home} <span style={{ color: 'var(--text3)' }}>vs</span> {partido.away}
+          {hasResult && <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--green)' }}>({partido.home_goals}–{partido.away_goals})</span>}
+        </span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setEditing(e => !e)}
+            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>
+            ✏️
+          </button>
+          <button onClick={() => onDelete(partido.id)}
+            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
+            🗑
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{currentDate}</div>
+      {editing && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginTop: 4 }}>
+          <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ ...inp, fontSize: 12 }} />
+          <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} style={{ ...inp, fontSize: 12 }} />
+          <button onClick={() => { onDateChange(partido.id, editDate, editTime); setEditing(false) }}
+            style={{ ...btn(), padding: '6px 10px', fontSize: 12 }}>✓</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Players Section ───────────────────────────────────────────────────────────
+function PlayersSection() {
+  const [selectedTeam, setSelectedTeam] = useState(LALIGA_TEAMS[0])
+  const [players, setPlayers] = useState([])
+  const [newName, setNewName] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkImporting, setBulkImporting] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState('')
+
+  useEffect(() => { loadPlayers() }, [selectedTeam])
+
+  const loadPlayers = async () => {
+    setLoading(true)
+    const { data } = await supabase.from('liga_players').select('*').eq('team', selectedTeam).order('name')
+    setPlayers(data || [])
+    setLoading(false)
+  }
+
+  const addPlayer = async () => {
+    if (!newName.trim()) return
+    setAdding(true)
+    await supabase.from('liga_players').insert({ team: selectedTeam, name: newName.trim() })
+    setNewName('')
+    setAdding(false)
+    loadPlayers()
+  }
+
+  const deletePlayer = async (id) => {
+    await supabase.from('liga_players').delete().eq('id', id)
+    loadPlayers()
+  }
+
+  const deleteAll = async () => {
+    if (!confirm(`¿Borrar TODOS los jugadores de ${selectedTeam}?`)) return
+    await supabase.from('liga_players').delete().eq('team', selectedTeam)
+    loadPlayers()
+  }
+
+  const bulkImport = async () => {
+    const names = bulkText.split('\n').map(l => l.trim()).filter(Boolean)
+    if (!names.length) return
+    setBulkImporting(true)
+    setBulkMsg('')
+    // Delete existing and re-insert
+    await supabase.from('liga_players').delete().eq('team', selectedTeam)
+    const rows = names.map(name => ({ team: selectedTeam, name }))
+    const { error } = await supabase.from('liga_players').insert(rows)
+    setBulkImporting(false)
+    setBulkMsg(error ? `Error: ${error.message}` : `✓ ${names.length} jugadores importados`)
+    setBulkText('')
+    loadPlayers()
+  }
+
+  return (
+    <div>
+      <select value={selectedTeam} onChange={e => { setSelectedTeam(e.target.value); setBulkMsg('') }} style={{ ...sel, marginBottom: 14 }}>
+        {LALIGA_TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+
+      {/* Add single */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, fontWeight: 600 }}>AÑADIR JUGADOR</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nombre del jugador"
+            style={{ ...inp, flex: 1 }} onKeyDown={e => e.key === 'Enter' && addPlayer()} />
+          <button onClick={addPlayer} disabled={adding || !newName.trim()} style={btn()}>
+            {adding ? '…' : '+ Añadir'}
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk import */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, fontWeight: 600 }}>IMPORTAR LISTA (uno por línea — reemplaza la plantilla actual)</div>
+        <textarea value={bulkText} onChange={e => setBulkText(e.target.value)}
+          placeholder={'Lewandowski\nLamine Yamal\nRaphinha\nPedri\n...'}
+          rows={8}
+          style={{ ...inp, width: '100%', resize: 'vertical', boxSizing: 'border-box', marginBottom: 8, fontFamily: 'monospace', fontSize: 13 }} />
+        {bulkMsg && <div style={{ fontSize: 12, color: bulkMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)', marginBottom: 8 }}>{bulkMsg}</div>}
+        <button onClick={bulkImport} disabled={bulkImporting || !bulkText.trim()} style={{ ...btn(), width: '100%' }}>
+          {bulkImporting ? 'Importando…' : '📋 Importar lista'}
+        </button>
+      </div>
+
+      {/* Player list */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: 'var(--text3)' }}>{players.length} jugadores</span>
+        {players.length > 0 && (
+          <button onClick={deleteAll} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
+            🗑 Borrar todos
+          </button>
+        )}
+      </div>
+
+      {loading
+        ? <div style={{ color: 'var(--text3)', textAlign: 'center', padding: 20 }}>Cargando…</div>
+        : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {players.map(p => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px' }}>
+                <span style={{ fontSize: 14 }}>{p.name}</span>
+                <button onClick={() => deletePlayer(p.id)}
+                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
+                  🗑
+                </button>
               </div>
             ))}
+            {players.length === 0 && <div style={{ color: 'var(--text3)', fontSize: 13, padding: 12 }}>Sin jugadores. Añade o importa la plantilla.</div>}
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:8,alignItems:'center'}}>
-            <input style={inp} placeholder="Nuevo usuario" value={newU} onChange={e=>setNewU(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addUser()}/>
-            <input style={inp} type="password" placeholder="Contraseña" value={newP} onChange={e=>setNewP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addUser()}/>
-            <button style={btnS} onClick={addUser}>Añadir</button>
-          </div>
-          {msg && (
-            <div style={{fontSize:13,marginTop:8,padding:'7px 10px',borderRadius:6,
-              color:msgOk?'var(--green)':'var(--red)',background:msgOk?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'}}>
-              {msg}
+        )
+      }</div>
+  )
+}
+
+// ── Config Section ────────────────────────────────────────────────────────────
+function ConfigSection({ points, onPointsSaved, currentUser, onDisplayNameChanged }) {
+  const [exact, setExact] = useState(points.exact)
+  const [diff, setDiff] = useState(points.diff)
+  const [sign, setSign] = useState(points.sign)
+  const [scorer, setScorer] = useState(points.scorer)
+  const [minute, setMinute] = useState(points.minute)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
+  useEffect(() => {
+    setExact(points.exact); setDiff(points.diff); setSign(points.sign)
+    setScorer(points.scorer); setMinute(points.minute)
+  }, [points])
+
+  const savePoints = async () => {
+    setSaving(true)
+    const value = { exact: +exact, diff: +diff, sign: +sign, scorer: +scorer, minute: +minute }
+    await supabase.from('config').upsert({ key: 'liga_points', value }, { onConflict: 'key' })
+    onPointsSaved(value)
+    setSaving(false); setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  const resetAll = async () => {
+    if (!confirm('⚠️ ¿Borrar TODAS las apuestas de liga? Esta acción no se puede deshacer.')) return
+    if (!confirm('¿Seguro? Se borrarán todos los puntos y apuestas de todos los usuarios.')) return
+    setResetting(true)
+    await supabase.from('liga_bets').delete().neq('id', 'none-nonexistent')
+    setResetting(false)
+    alert('✅ Todas las apuestas han sido borradas.')
+  }
+
+  const numInp = (val, set) => (
+    <input type="number" min="0" max="10" value={val} onChange={e => set(e.target.value)}
+      style={{ ...inp, width: 60, textAlign: 'center' }} />
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Points config */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 12 }}>Puntuación</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            ['🎯 Resultado exacto', exact, setExact],
+            ['↔️ Diferencia exacta', diff, setDiff],
+            ['✅ Ganador/empate', sign, setSign],
+            ['⚽ Goleador', scorer, setScorer],
+            ['🕐 Tramo minuto', minute, setMinute],
+          ].map(([label, val, set]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 14 }}>{label}</span>
+              {numInp(val, set)}
             </div>
-          )}
-        </Section>
-      )}
+          ))}
+        </div>
+        <button onClick={savePoints} disabled={saving} style={{ ...btn(), width: '100%', marginTop: 14 }}>
+          {saving ? 'Guardando…' : saved ? '✓ Guardado' : '💾 Guardar puntos'}
+        </button>
+      </div>
+
+      {/* Reset */}
+      <div style={{ background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 10, padding: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--red)' }}>⚠️ Zona de peligro</div>
+        <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>
+          Borra todas las apuestas de liga para empezar de cero (primera vuelta / segunda vuelta). Las jornadas y partidos no se borran.
+        </p>
+        <button onClick={resetAll} disabled={resetting}
+          style={{ ...btn('rgba(239,68,68,.8)'), width: '100%' }}>
+          {resetting ? 'Borrando…' : '🗑 Resetear todas las apuestas'}
+        </button>
+      </div>
     </div>
   )
 }
