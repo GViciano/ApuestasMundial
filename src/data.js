@@ -52,9 +52,9 @@ function parseMadrid(iso) {
 
 export function fmtDate(iso) {
   const d = parseMadrid(iso)
-  const datePart = d.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'2-digit', timeZone:'Europe/Madrid' })
-  const timePart = d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Madrid' })
-  return `${datePart} ${timePart}`
+  const day = d.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'Europe/Madrid' })
+  const time = d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Europe/Madrid' })
+  return `${day} ${time}h`
 }
 
 export function isOpen(iso) {

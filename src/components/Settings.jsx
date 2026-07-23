@@ -209,7 +209,7 @@ function PartidoRow({ partido, onDelete, onDateChange }) {
   const [editing, setEditing] = useState(false)
 
   const currentDate = partido.match_date
-    ? new Date(partido.match_date).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })
+    ? new Date(partido.match_date).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Madrid' })
     : 'Sin fecha'
 
   const hasResult = partido.home_goals !== null
